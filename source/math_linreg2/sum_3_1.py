@@ -24,47 +24,46 @@ df_train_scaled = scaler.transform(df_train)
 X_scaled, y_scaled = df_train_scaled[:, :-1], df_train_scaled[:, -1]
 
 
+cv = KFold(n_splits=10)
+scorer = sklearn.metrics.make_scorer(sklearn.metrics.mean_squared_error)
+
 """####################
 RR
 ####################"""
-alpha_range = [0.1, 4.3, 11.2, 22.8, 36.6, 74.4, 151.1, 388.8, 1000.0]
-param_grid = dict(alpha=alpha_range)
-cv = KFold(n_splits=10)
-scorer = sklearn.metrics.make_scorer(sklearn.metrics.mean_squared_error)
-grid1 = GridSearchCV(Ridge(), scoring=scorer, param_grid=param_grid, cv=cv)
+model_1 = Ridge()
+param_name_1 = 'alpha'
+param_range_1 = [0.1, 4.3, 11.2, 22.8, 36.6, 74.4, 151.1, 388.8, 1000.0]
 
+grid1 = GridSearchCV(model_1, scoring=scorer, param_grid={param_name_1: param_range_1}, cv=cv)
 grid1.fit(X_scaled, y_scaled)
-results1 = pd.DataFrame.from_dict(grid1.cv_results_)[['param_alpha', 'mean_test_score', 'std_test_score']]
-
+results1 = pd.DataFrame.from_dict(grid1.cv_results_)[['param_' + param_name_1, 'mean_test_score', 'std_test_score']]
 
 
 """####################
 PCA
 ####################"""
-pca = PCA()
-linreg = LinearRegression()
-pipe = Pipeline(steps=[('pca', pca), ('linreg', linreg)])
-param_grid = {
-    'pca__n_components': [1, 2, 3, 4, 5, 6, 7, 8],
-}
-grid2 = GridSearchCV(pipe, scoring=scorer, param_grid=param_grid, cv=cv)
-grid2.fit(X_scaled, y_scaled)
+model_2 = Pipeline(steps=[('pca', PCA()), ('linreg', LinearRegression())])
+param_name_2 = 'pca__n_components'
+param_range_2 = [1, 2, 3, 4, 5, 6, 7, 8]
 
-results2 = pd.DataFrame.from_dict(grid2.cv_results_)[['param_pca__n_components', 'mean_test_score', 'std_test_score']]
+grid2 = GridSearchCV(model_2, scoring=scorer, param_grid={param_name_2: param_range_2}, cv=cv)
+grid2.fit(X_scaled, y_scaled)
+results2 = pd.DataFrame.from_dict(grid2.cv_results_)[['param_' + param_name_2, 'mean_test_score', 'std_test_score']]
 
 
 """####################
 PLS
 ####################"""
-n_components_range = [1, 2, 3, 4, 5, 6, 7, 8]
-param_grid = dict(n_components=n_components_range)
-cv = KFold(n_splits=10)
-scorer = sklearn.metrics.make_scorer(sklearn.metrics.mean_squared_error)
-grid3 = GridSearchCV(PLSRegression(), scoring=scorer, param_grid=param_grid, cv=cv)
+model_3 = PLSRegression()
+param_name_3 = 'n_components'
+param_range_3 = [1, 2, 3, 4, 5, 6, 7, 8]
+
+grid3 = GridSearchCV(model_3, scoring=scorer, param_grid={param_name_3: param_range_3}, cv=cv)
 grid3.fit(X_scaled, y_scaled)
+results3 = pd.DataFrame.from_dict(grid3.cv_results_)[['param_' + param_name_3, 'mean_test_score', 'std_test_score']]
 
-results3 = pd.DataFrame.from_dict(grid3.cv_results_)[['param_n_components', 'mean_test_score', 'std_test_score']]
 
+""" converts "alpha" from RR to "degrees of freedom"""
 def calculate_degrees_freedom(X, alpha):
     inner_factor = np.linalg.inv(X.T.__matmul__(X) + alpha * np.identity(X.shape[1]))
     hat_matrix = (X.__matmul__(inner_factor)).__matmul__(X.T)
@@ -76,16 +75,18 @@ results1 = results1.sort_values(by=['param_df'])
 results1 = results1.reset_index(drop=True)
 
 
-""" function which handles plotting for 1 model"""
+""" function which create plot for single model"""
 def plot_results(ax, results, param_name, title):
     ax.plot(results[param_name], results['mean_test_score'])
     ax.scatter(results[param_name], results['mean_test_score'])
     ax.errorbar(results[param_name], results['mean_test_score'], results['std_test_score'])
     one_error_above_min = results['mean_test_score'].min() + results['std_test_score'][results['mean_test_score'].argmin()]
-    ax.hlines(one_error_above_min, 0, 9)
-    ax.set_xticks(np.linspace(0, 9, 10))
+    ax.hlines(one_error_above_min, 0, 8)
+    ax.set_xticks(np.linspace(0, 8, 9))
     ax.set_title(title)
 
+# TODO wpisac to do
+""" creating multiple plots """
 fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
 plot_results(ax1, results1, 'param_df', 'ridge')
 plot_results(ax2, results2, 'param_pca__n_components', 'pcr')
