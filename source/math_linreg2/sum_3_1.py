@@ -7,7 +7,6 @@ import statsmodels.api as sm
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Ridge, LinearRegression
 from sklearn.decomposition import PCA
-from sklearn.cross_decomposition import PLSRegression
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -59,19 +58,26 @@ class ZhengLohTransformer(BaseEstimator, TransformerMixin):
 """ ##############################################################
 Cross validation
 ###############################################################"""
-def perform_cv(model, param_name, param_range):
+def perform_cv(model, param_name, param_range, X=X_scaled):
     cv = KFold(n_splits=10)
     scorer = sklearn.metrics.make_scorer(sklearn.metrics.mean_squared_error)
     grid = GridSearchCV(model, scoring=scorer, param_grid={param_name: param_range}, cv=cv)
-    grid.fit(X_scaled, y_scaled)
+    grid.fit(X, y_scaled)
     results = pd.DataFrame.from_dict(grid.cv_results_)[['param_' + param_name, 'mean_test_score', 'std_test_score']]
     results['std_test_score'] = results['std_test_score'] / np.sqrt(results.shape[0])
     return results
 
 
-results_RR = perform_cv(Ridge(), 'alpha', [0.1, 4.3, 11.2, 22.8, 36.6, 74.4, 151.1, 388.8, 1000.0])
-results_PCR = perform_cv(Pipeline(steps=[('pca', PCA()), ('linreg', LinearRegression())]), 'pca__n_components', [1, 2, 3, 4, 5, 6, 7, 8])
-results_PCRord = perform_cv(Pipeline(steps=[('zlt', ZhengLohTransformer()), ('linreg', LinearRegression())]), 'zlt__n_components', [1, 2, 3, 4, 5, 6, 7, 8])
+results_RR = perform_cv(
+    Ridge(), 'alpha', [0.1, 4.3, 11.2, 22.8, 36.6, 74.4, 151.1, 388.8, 1000.0]
+)
+results_PCR = perform_cv(
+    Pipeline(steps=[('pca', PCA()), ('linreg', LinearRegression())]), 'pca__n_components', [1, 2, 3, 4, 5, 6, 7, 8]
+)
+results_PCRord = perform_cv(
+    Pipeline(steps=[('zlt', ZhengLohTransformer()), ('linreg', LinearRegression())]), 'zlt__n_components',
+    [1, 2, 3, 4, 5, 6, 7, 8], X=PCA(n_components=8).fit_transform(X_scaled)
+)
 
 
 """ ##############################################################
