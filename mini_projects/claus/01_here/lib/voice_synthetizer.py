@@ -1,20 +1,17 @@
-from pathlib import Path
 import os
 import boto3
 import re
+import pathlib as pl
 from lib.clipboard_controller import ClipboardController
-
+from lib.klaus_state_analyzer import KlausStateAnalyzer
 
 class VoiceSynthetizer:
 
     @staticmethod
     def get_path_to_output():
-        path_to_records = Path(os.environ["CLAUS"]).joinpath("db").joinpath("niem_60").joinpath("wav")
-        max_record_number = max(
-            [int(path.stem) for path in path_to_records.glob('**/*') if path.is_file()]
-        )
+        max_record_number = KlausStateAnalyzer().get_max_record_number()
         new_record_filename = f"{max_record_number + 1}.mp3"
-        new_record_path = Path(os.path.realpath(__file__)).parent.parent.joinpath("temp").joinpath(new_record_filename)
+        new_record_path = pl.Path(os.path.realpath(__file__)).parent.parent.joinpath("temp").joinpath(new_record_filename)
         return new_record_path
 
     @staticmethod
