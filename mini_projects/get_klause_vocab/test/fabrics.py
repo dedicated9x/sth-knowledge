@@ -1,4 +1,4 @@
-from mini_projects.get_klause_vocab.parsed_collections import idioms_to_fullwords
+from mini_projects.get_klause_vocab.lib.parsed_collections import idioms_to_fullwords
 import itertools
 import random
 
@@ -10,10 +10,11 @@ def get_sample_fullwords():
 
     german_words = list(filter(is_german_word, idioms_to_fullwords.keys()))
     sample_idioms = random.choices(german_words, k=20)
+    # TODO to gdzies indziej powinno byc itertools
     sample_fullwords = list(itertools.chain(*[idioms_to_fullwords[k] for k in sample_idioms]))
     return sample_fullwords
 
-fullwords = get_sample_fullwords()
+# fullwords = get_sample_fullwords()
 
 
 

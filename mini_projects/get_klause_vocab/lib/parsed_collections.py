@@ -4,7 +4,7 @@ import pathlib as pl
 FREQUENCY_LIM = 10
 
 
-with open(pl.Path(__file__).parent.joinpath('static', 'klaus_dictionary.txt'), 'r', encoding='utf8') as infile:
+with open(pl.Path(__file__).parent.parent.joinpath('static', 'klaus_dictionary.txt'), 'r', encoding='utf8') as infile:
     db_raw = infile.readlines()
 
 def get_fullwords(db_raw):
@@ -38,23 +38,3 @@ fullwords = get_fullwords(db_raw)
 idioms_to_fullwords = get_idioms_to_fullwords(fullwords)
 idioms_to_fullwords, most_common = filter_most_common(idioms_to_fullwords)
 
-
-
-
-
-
-
-# frequent = {}
-# for k, v in idioms_to_fullwords.items():
-#     if len(v) >= 10:
-#         frequent[k] = v
-
-
-# from collections import Counter
-# c1 = Counter([len(elem) for elem in idioms_to_fullwords.values()])
-# print(c1.most_common(20))
-
-
-# for line in db_raw:
-#     if line.split('=')[0][-1] != 'a':
-#         print('err')

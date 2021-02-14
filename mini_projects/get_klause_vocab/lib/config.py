@@ -1,0 +1,1 @@
+PATH_TO_KLAUS = rf'C:\Edgard\Profesor Klaus 6.0 S³ownictwo\get_klause_vocab'
