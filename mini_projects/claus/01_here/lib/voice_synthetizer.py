@@ -34,12 +34,9 @@ class VoiceSynthetizer:
         response = polly_client.synthesize_speech(
             VoiceId='Hans', OutputFormat='mp3', Text=text, TextType='ssml'
         )
-        new_record_path = self.get_path_to_output()
-        file = open(new_record_path, 'wb')
         sound = response['AudioStream'].read()
-        # file.write(response['AudioStream'].read())
-        file.write(sound)
-        file.close()
+
+        new_record_path = self.get_path_to_output()
         return new_record_path, sound
 
 
