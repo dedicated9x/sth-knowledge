@@ -7,12 +7,12 @@ from lib.klaus_state_analyzer import KlausStateAnalyzer
 
 class VoiceSynthetizer:
 
-    @staticmethod
-    def get_path_to_output():
-        max_record_number = KlausStateAnalyzer().get_max_record_number()
-        new_record_filename = f"{max_record_number + 1}.mp3"
-        new_record_path = pl.Path(os.path.realpath(__file__)).parent.parent.joinpath("temp").joinpath(new_record_filename)
-        return new_record_path
+    # @staticmethod
+    # def get_path_to_output():
+    #     max_record_number = KlausStateAnalyzer().get_max_record_number()
+    #     new_record_filename = f"{max_record_number + 1}.mp3"
+    #     new_record_path = pl.Path(os.path.realpath(__file__)).parent.parent.joinpath("temp").joinpath(new_record_filename)
+    #     return new_record_path
 
     @staticmethod
     def read_auth(path_to_auth):
@@ -36,8 +36,9 @@ class VoiceSynthetizer:
         )
         sound = response['AudioStream'].read()
 
-        new_record_path = self.get_path_to_output()
-        return new_record_path, sound
+        # new_record_path = self.get_path_to_output()
+        # return new_record_path, sound
+        return sound
 
 
 # TODO get path to output powinno byc robione pozniej
