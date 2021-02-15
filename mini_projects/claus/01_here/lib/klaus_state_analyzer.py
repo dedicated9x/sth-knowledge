@@ -1,5 +1,6 @@
 from lib.paths_registry import PathsRegistry
 
+
 class KlausStateAnalyzer:
     @staticmethod
     def get_max_record_number():
