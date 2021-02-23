@@ -1,16 +1,16 @@
 import os
 import shutil
-from lib.klaus_state_analyzer import KlausStateAnalyzer
+from lib.klaus_state_analyzer import KlausDir
 from lib.paths_registry import PathsRegistry
 
 
 class WavCreator:
-    @staticmethod
-    def _get_path_to_output():
-        max_record_number = KlausStateAnalyzer().get_max_record_number()
-        new_record_filename = f"{max_record_number + 1}.mp3"
-        new_record_path = PathsRegistry.temp.joinpath(new_record_filename)
-        return new_record_path
+    # @staticmethod
+    # def _get_path_to_output():
+    #     max_record_number = KlausStateAnalyzer().get_max_record_number()
+    #     new_record_filename = f"{max_record_number + 1}.mp3"
+    #     new_record_path = PathsRegistry.temp.joinpath(new_record_filename)
+    #     return new_record_path
 
     @staticmethod
     def _tidy():
@@ -29,9 +29,11 @@ class WavCreator:
         path_to_fffmpeg = PathsRegistry.ffmpeg
         os.system(f"{path_to_fffmpeg} -i {src} -acodec pcm_s16le -ac 1 -ar 16000 {dst}")
 
+    # TODO sciezka ma isc z kad inad
     @staticmethod
     def create_wav(sound):
-        path_to_mp3 = WavCreator._get_path_to_output()
+        available_filename = KlausDir.get_next_available_record_filename()
+        path_to_mp3 = PathsRegistry.temp.joinpath(available_filename)
         path_to_wav = path_to_mp3.with_suffix(".wav")
 
         WavCreator._tidy()
