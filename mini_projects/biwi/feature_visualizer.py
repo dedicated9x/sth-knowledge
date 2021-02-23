@@ -1,14 +1,11 @@
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
-# CHOSEN_NUMBERS = [3, 31, 107, 129, 144, 220, 291, 321, 342, 366, 418, 435, 447, 500]
-
 class Visualizer:
     chosen_numbers = [3, 31, 107, 129, 144, 220, 291, 321, 342, 366, 418, 435, 447, 500]
 
     @classmethod
     def plot_feature(cls, df_, feature):
-        # global CHOSEN_NUMBERS
         id_list = ['01_' + str(n).zfill(5) for n in cls.chosen_numbers]
         rows = df_[df_['id'].isin(id_list)].sort_values(by=[feature]).reset_index()
 
