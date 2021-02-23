@@ -1,22 +1,17 @@
 import os
 import shutil
-from lib.klaus_state_analyzer import KlausDir
 from lib.paths_registry import PathsRegistry
 
 
 class WavCreator:
-    # @staticmethod
-    # def _get_path_to_output():
-    #     max_record_number = KlausStateAnalyzer().get_max_record_number()
-    #     new_record_filename = f"{max_record_number + 1}.mp3"
-    #     new_record_path = PathsRegistry.temp.joinpath(new_record_filename)
-    #     return new_record_path
+    path_to_ffmpeg = PathsRegistry.ffmpeg
 
-    @staticmethod
-    def _tidy():
-        path_to_temp = PathsRegistry.temp
-        shutil.rmtree(path_to_temp)
-        path_to_temp.mkdir()
+    def __init__(self, workdir):
+        self.workdir = workdir
+
+    def _tidy(self):
+        shutil.rmtree(self.workdir)
+        self.workdir.mkdir()
 
     @staticmethod
     def _save_mp3(output_path, sound):
@@ -24,19 +19,15 @@ class WavCreator:
         file.write(sound)
         file.close()
 
-    @staticmethod
-    def _convert_mp3_to_wav(src, dst):
-        path_to_fffmpeg = PathsRegistry.ffmpeg
-        os.system(f"{path_to_fffmpeg} -i {src} -acodec pcm_s16le -ac 1 -ar 16000 {dst}")
+    @classmethod
+    def _convert_mp3_to_wav(cls, src, dst):
+        os.system(f"{cls.path_to_ffmpeg} -i {src} -acodec pcm_s16le -ac 1 -ar 16000 {dst}")
 
-    # TODO sciezka ma isc z kad inad
-    @staticmethod
-    def create_wav(sound):
-        available_filename = KlausDir.get_next_available_record_filename()
-        path_to_mp3 = PathsRegistry.temp.joinpath(available_filename)
+    def create_wav(self, sound, filename):
+        path_to_mp3 = self.workdir.joinpath(filename)
         path_to_wav = path_to_mp3.with_suffix(".wav")
 
-        WavCreator._tidy()
-        WavCreator._save_mp3(path_to_mp3, sound)
-        WavCreator._convert_mp3_to_wav(path_to_mp3, path_to_wav)
+        self._tidy()
+        self._save_mp3(path_to_mp3, sound)
+        self._convert_mp3_to_wav(path_to_mp3, path_to_wav)
         return path_to_wav

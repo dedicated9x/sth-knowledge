@@ -1,9 +1,10 @@
 import boto3
 import re
 from lib.clipboard_controller import ClipboardController
+from config import PROSODY_RATE, PATH_TO_AUTH
 
 
-class VoiceSynthetizer:
+class TextToMp3Converter:
     @staticmethod
     def _read_auth(path_to_auth):
         with open(path_to_auth, "r") as infile:
@@ -15,11 +16,11 @@ class VoiceSynthetizer:
         auth = dict(zip(keys, values))
         return auth
 
-    def make_sound_from_text(self, path_to_auth, prosody_rate):
-        input_ = ClipboardController.get_clipboard_value()
-        auth = self._read_auth(path_to_auth)
+    @classmethod
+    def convert(cls, text_):
+        auth = cls._read_auth(PATH_TO_AUTH)
         polly_client = boto3.Session(**auth, region_name='us-west-2').client('polly')
-        text = f'<speak><prosody rate="{prosody_rate}%">{input_}</prosody></speak>'
+        text = f'<speak><prosody rate="{PROSODY_RATE}%">{text_}</prosody></speak>'
         response = polly_client.synthesize_speech(
             VoiceId='Hans', OutputFormat='mp3', Text=text, TextType='ssml'
         )
