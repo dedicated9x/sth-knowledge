@@ -50,10 +50,10 @@ class Clicker:
 
 
 """ test """
-# from mini_projects.get_klause_vocab.test.fabrics import get_sample_fullwords
-# words = get_sample_fullwords()
-# ck = Clicker()
-# ck.enter_words(words[:20])
+from mini_projects.get_klause_vocab.test.factories import get_sample_fullwords
+words = get_sample_fullwords(20)
+ck = Clicker()
+ck.enter_words(words[:20])
 
 
 """ MAIN """
