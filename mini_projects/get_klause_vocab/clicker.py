@@ -1,29 +1,21 @@
 import pyautogui
 import time
 import pathlib as pl
-from screeninfo import get_monitors
 import mini_projects.get_klause_vocab.lib.keyboard_developer as keyboard_developer
 from mini_projects.get_klause_vocab.lib.config import PATH_TO_KLAUS
+from mini_projects.get_klause_vocab.klaus.app import AppInfo
 
 # for i in range(10):
 #     print(pyautogui.position())
 #     time.sleep(1)
 
-class Localizer:
-    def __init__(self):
-        monitors = get_monitors()
-        if len(monitors) == 3:
-            positions = (822, 452), (1382, 706)
-        else:
-            positions = (392, 201), (1087, 520)
 
-        self.form_pos, self.button_pos = positions
-
-
+#TODO dwa clickery dziedziczace
+#TODO KlausApp
 class Clicker:
     def __init__(self):
-        localizer = Localizer()
-        self.form_pos, self.buttons_pos = localizer.form_pos, localizer.button_pos
+        location_set = AppInfo.get_location_set()
+        self.form_pos, self.buttons_pos = location_set.explore_db_form, location_set.explore_db_button
         keyboard_developer.add_german_vk_codes()
 
     def _prepare(self):
@@ -42,6 +34,7 @@ class Clicker:
         for word in words:
             self._enter_word(word)
 
+    # TODO
     def enter_words_from_file(self, exercise_fname):
         with open(pl.Path(PATH_TO_KLAUS).joinpath('exercises', exercise_fname), 'r') as infile:
             words = infile.read().splitlines()
@@ -57,11 +50,8 @@ ck.enter_words(words[:20])
 
 
 """ MAIN """
-# TODO clicker (pobiera 20 i wklikuje)
-# exercdas P'ckchen
 # 'links_1_part_0_of_42.txt'
 # Clicker().enter_words_from_file(exercise_fname)
-
 
 
 """ test bazy danych """
@@ -72,6 +62,5 @@ ck.enter_words(words[:20])
 #
 # assert len(idioms_to_fullwords) == 9318
 # assert len(fullwords) == 10714
-#
 
 
