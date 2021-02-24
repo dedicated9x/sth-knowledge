@@ -1,7 +1,7 @@
 import boto3
 import re
-from lib.clipboard_controller import ClipboardController
-from config import PROSODY_RATE, PATH_TO_AUTH
+from mini_projects.claus.config import PROSODY_RATE, PATH_TO_AUTH
+from mini_projects.claus.lib.clipboard_controller import ClipboardController
 
 
 class TextToMp3Converter:

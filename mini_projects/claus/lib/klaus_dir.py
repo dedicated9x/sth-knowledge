@@ -1,4 +1,4 @@
-from lib.paths_registry import PathsRegistry
+from mini_projects.claus.lib.paths_registry import PathsRegistry
 
 # TODO klausdirectory
 class KlausDir:

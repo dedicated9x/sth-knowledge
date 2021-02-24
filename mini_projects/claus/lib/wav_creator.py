@@ -1,6 +1,6 @@
 import os
 import shutil
-from lib.paths_registry import PathsRegistry
+from mini_projects.claus.lib.paths_registry import PathsRegistry
 
 
 class WavCreator:

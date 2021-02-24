@@ -81,7 +81,7 @@ class AddWordView(AppView):
 
 
 word_pl = "Polskie Slowko"
-word_de = "Niemiecke Slowko"
+word_de = "Niemiecke Slowko 6"
 word_com = "komentarz"
 
 self = AddWordView()
@@ -94,9 +94,23 @@ pyautogui.click(self.comment_form_pos)
 pyautogui.write(word_com)
 
 
-# TODO 01_here do wyjebania
-# from mini_projects.claus.0
-# path_to_wav = KlausTextToWavConverter.convert(text, verbose=1)
+from mini_projects.claus.lib.text_to_wav_converter import KlausTextToWavConverter
+from mini_projects.claus.lib.clipboard_controller import ClipboardController
+path_to_wav = KlausTextToWavConverter.convert(word_de, verbose=1)
+ClipboardController.save_to_clipboard(str(path_to_wav))
 
 
 
+pyautogui.click(self.load_record_button)
+time.sleep(0.2)
+pyautogui.hotkey('ctrl', 'v')
+pyautogui.press('enter')
+time.sleep(1)
+pyautogui.press('enter')
+time.sleep(1)
+pyautogui.press('enter')
+
+# TODO 1 musimy tutaj wybrac, do ktorego klausa sie odwolujemy, inaczej nie bedzie inkrementowal kolejnych nagran
+
+    # TODO 2 nagranie starter powinno tam byc w folderze (albo i nie)
+    # TODO baza danych od Natalii sparsowana i zrobiona
