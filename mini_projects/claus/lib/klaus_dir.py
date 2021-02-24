@@ -1,16 +1,14 @@
-from mini_projects.claus.lib.paths_registry import PathsRegistry
 
-# TODO klausdirectory
 class KlausDir:
-    @staticmethod
-    def _get_max_record_number():
-        path_to_records = PathsRegistry.records
+    def __init__(self, path_to_klaus_dir):
+        self.path_to_records = path_to_klaus_dir.joinpath("db", "niem_60", "wav")
+
+    def _get_max_record_number(self):
         return max(
-            [int(path.stem) for path in path_to_records.glob('**/*') if path.is_file()]
+            [int(path.stem) for path in self.path_to_records.glob('**/*') if path.is_file()]
         )
 
-    @classmethod
-    def get_next_available_record_filename(cls):
-        max_record_number = cls._get_max_record_number()
+    def get_next_available_record_filename(self):
+        max_record_number = self._get_max_record_number()
         available_filename = f"{max_record_number + 1}.mp3"
         return available_filename

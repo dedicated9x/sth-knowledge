@@ -9,7 +9,9 @@ class KlausTextToWavConverter:
     @staticmethod
     def convert(text, verbose=0):
         sound = TextToMp3Converter().convert(text)
-        filename = KlausDir.get_next_available_record_filename()
+        # filename = KlausDir.get_next_available_record_filename()
+        # filename = KlausDir(PathsRegistry.records).get_next_available_record_filename()
+        filename = KlausDir(PathsRegistry.klaus).get_next_available_record_filename()
         path_to_wav = WavCreator(workdir=PathsRegistry.temp).create_wav(sound, filename)
         if verbose == 1:
             WavPlayer.play(str(path_to_wav))
