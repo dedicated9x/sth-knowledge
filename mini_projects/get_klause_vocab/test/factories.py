@@ -1,4 +1,4 @@
-from mini_projects.get_klause_vocab.klaus.parsed_collections import idioms_to_fullwords
+from mini_projects.get_klause_vocab.klaus.basic_db import BasicDB
 import itertools
 import random
 
@@ -8,6 +8,7 @@ def get_sample_fullwords(lenght):
     def is_german_word(word):
         return (set(word) & {'ß', 'ö', 'ä'}) != set()
 
+    idioms_to_fullwords = BasicDB.get_idioms_to_fullwords()
     german_words = list(filter(is_german_word, idioms_to_fullwords.keys()))
     sample_idioms = random.choices(german_words, k=lenght)
     # TODO to gdzies indziej powinno byc itertools

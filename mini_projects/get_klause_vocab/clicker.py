@@ -58,5 +58,20 @@ ck.enter_words(words[:20])
 
 """ MAIN """
 # TODO clicker (pobiera 20 i wklikuje)
-# exercise_fname = 'links_1_part_0_of_42.txt'
+# exercdas P'ckchen
+# 'links_1_part_0_of_42.txt'
 # Clicker().enter_words_from_file(exercise_fname)
+
+
+
+""" test bazy danych """
+# import itertools
+# from mini_projects.get_klause_vocab.klaus.basic_db import BasicDB
+# idioms_to_fullwords = BasicDB.get_idioms_to_fullwords()
+# fullwords = list(itertools.chain(*[idioms_to_fullwords[k] for k in idioms_to_fullwords.keys()]))
+#
+# assert len(idioms_to_fullwords) == 9318
+# assert len(fullwords) == 10714
+#
+
+
