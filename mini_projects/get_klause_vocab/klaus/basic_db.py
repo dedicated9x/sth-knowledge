@@ -38,3 +38,33 @@ class BasicDB:
             else:
                 less_common[k] = v
         return less_common, most_common
+
+
+# TODO 1 odpal ten stary test (i podmien na parsowanie csv)
+"""klaus = convert .txt to clean .xlsx"""
+# import pandas as pd
+# import pathlib as pl
+#
+# def func1(row):
+#     line = row['LINES']
+#     row['DE'], row['PL'] = [elem.strip() for elem in line.rstrip('\n').split('=')]
+#     return row
+#
+# lines = BasicDB().get_lines()
+# lines = pd.Series(lines)
+# lines = pd.DataFrame().assign(LINES=lines)
+# lines2 = lines.apply(func1, axis=1)
+# df = lines2[['DE', 'PL']]
+# path_output = pl.Path(__file__).parent.parent.joinpath('static', 'dict_klaus.xlsx')
+# df.to_excel(path_output, index=False)
+# df1 = pd.read_excel(path_output, engine='openpyxl')
+
+"""med = convert .xlsx to clean .xlsx"""
+# import pandas as pd
+# import pathlib as pl
+# path_ = pl.Path(__file__).parent.parent.joinpath('static', 'dtcpro_1_v3.xlsx')
+# df1 = pd.read_excel(path_, engine='openpyxl')
+# df2 = df1[['corr_de', 'pl']]
+# df3 = df2.rename(columns={'corr_de': 'DE', 'pl': 'PL'})
+# path_output = pl.Path(__file__).parent.parent.joinpath('static', 'dict_med.xlsx')
+# df3.to_excel(path_output, index=False)

@@ -8,11 +8,11 @@
 
 
 """ TEST - wpisanie 20-u slowek """
-from mini_projects.get_klause_vocab.klaus.app import ExploreDatabaseView
-from mini_projects.get_klause_vocab.test.factories import get_sample_fullwords
-words = get_sample_fullwords(20)
-ck = ExploreDatabaseView()
-ck.enter_words(words[:20])
+# from mini_projects.get_klause_vocab.klaus.app import ExploreDatabaseView
+# from mini_projects.get_klause_vocab.test.factories import get_sample_fullwords
+# words = get_sample_fullwords(20)
+# ck = ExploreDatabaseView()
+# ck.enter_words(words[:20])
 
 
 """ TEST - z pliku """
@@ -21,12 +21,12 @@ ck.enter_words(words[:20])
 
 
 """ TEST - bazy danych """
-# import itertools
-# from mini_projects.get_klause_vocab.klaus.basic_db import BasicDB
-# idioms_to_fullwords = BasicDB.get_idioms_to_fullwords()
-# fullwords = list(itertools.chain(*[idioms_to_fullwords[k] for k in idioms_to_fullwords.keys()]))
-#
-# assert len(idioms_to_fullwords) == 9318
-# assert len(fullwords) == 10714
+import itertools
+from mini_projects.get_klause_vocab.klaus.basic_db import BasicDB
+idioms_to_fullwords = BasicDB.get_idioms_to_fullwords()
+fullwords = list(itertools.chain(*[idioms_to_fullwords[k] for k in idioms_to_fullwords.keys()]))
+
+assert len(idioms_to_fullwords) == 9318
+assert len(fullwords) == 10714
 
 

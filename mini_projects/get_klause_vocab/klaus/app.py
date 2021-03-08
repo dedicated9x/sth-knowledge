@@ -90,11 +90,11 @@ pl2eng_transtab = str.maketrans("ąęóćźżńłśĆŹŻŃŁŚ", "aeoczznlsCZZN
 def add_word(self, word_pl, word_de, factor=1.0):
     global pl2eng_transtab
 
-    pyautogui.click(self.pl_form_pos)
+    pyautogui.click(self.de_form_pos)
     pyautogui.write(word_pl.translate(pl2eng_transtab))
 
     KeyboardLayout.to_german()
-    pyautogui.click(self.de_form_pos)
+    pyautogui.click(self.pl_form_pos)
     pyautogui.write(word_de)
     KeyboardLayout.to_polish()
 
