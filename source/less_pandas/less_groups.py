@@ -1,58 +1,53 @@
-import pandas as pd
-import os
+"""******************************************
+Filter [rows]
+******************************************"""
+# series = pd.Series([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+# isodd_filter = (series % 2) == 1
+# print(isodd_filter)
 
-
-def get_some_df():
-    return pd.read_pickle(os.path.abspath("sth.pickle"))
-
-# TODO cale do powtorki
 
 """******************************************
-GROUPING
+Filter [groups]
 ******************************************"""
-"""########## apply() ##########"""
-"""
-jaki jest cel ? ->             iterowanie po "grupach" (będacymi df-ami) z następującą konkatenacją (w końcu to "apply")
-"""
 # df = pd.DataFrame.from_dict({
-#     'RACE':     ['BLACK',   'BLACK',    'WHITE',    'BLACK',    'BLACK',    'WHITE'],
-#     'SALARY':   [1200,      3000,       8000,        1400,      2500,       10000]
+#     'RACE':     ['BLACK',   'HINDU',    'BLACK',    'WHITE',    'HINDU',    'BLACK',    'BLACK',    'WHITE'],
+#     'SALARY':   [1200,      150,        3000,       8000,       250,        1400,      2500,       10000]
 # })
 #
-# def give_white_steal_from_black(group: pd.DataFrame):
-#     race = group['RACE'].mode().values[0]
+# def remove_poor(group: pd.DataFrame) -> bool:
+#     avg_salary = group['SALARY'].mean()
+#     return avg_salary > 5000
 #
-#     if race == 'BLACK':
-#         group['SALARY'] = group['SALARY'] - 300
-#     else:
-#         group['SALARY'] = group['SALARY'] + 600
-#
-#     return group
-#
-# df = df.groupby('RACE').apply(give_white_steal_from_black)
+# groups_generator = df.groupby('RACE')
+# rich = groups_generator.filter(remove_poor)
 
 
-"""########## transform() ##########"""
+"""******************************************
+Dataframe -> row
+******************************************"""
 """
-jaki jest cel ? ->                                                                                              nie wiem
-co nie działa ? ->                                               nie ma dostępu do poszczególnych pól (wali KeyErrorami)
+        1. Czy mozliwy custom? ->                                                                             czemu nie?
 """
-# df = get_some_df()
-# sth1 = 'artist'
-# sth2 = "medium"
+# df = pd.DataFrame.from_dict({
+#     'x': [1, 2, 3],
+#     'y': [6, 5, 4]
+# })
 #
-# def some_func(series: pd.Series) -> pd.Series:
-#     # do sth
-#     return series
-#
-# iterator_of_dfs_grouped_by_sth1 = df.groupby(sth1)
-# iterator_of_series_of_sth2_grouped_by_sth1 = iterator_of_dfs_grouped_by_sth1[sth2]
-# transformed_series_of_sth2 = iterator_of_series_of_sth2_grouped_by_sth1.transform(some_func)
+# geometric_center = df.apply(pd.Series.mean, axis=0)
+# print(geometric_center)
 
-"""########## agg() ##########"""
+
+"""******************************************
+Dataframe(N) -> Series(m) [m << N]
+******************************************"""
 """
-1. jak nalezy czytac linijke z agg?->                         argument bedacy indeksem listy jest przekazywany do lambdy
-2. skoro jest to agregacja, to->          funkcje raczej nie beda customowe (raczej builtiny typy .max(), .mean(), itp.)
+        1. Czym jest group? ->                                                                                  seriesem
+        2. Czym jest SeriesGroupBy? ->                                                          generatorem tych groupow
+        3. Czym sie rozni agg() od apply()? ->                         (prawdopodobnie) agg() wymaga, by zwracano skalar
+        4. Dlaczego mozna od razu zrobić .mean() ->          wynika to z implementacji elementow GroupBy. Ich zadanie to 
+                                                             zaaplikowanie metody i nastepujaca konkatenacja. W tym wy-
+                                                             padku aplikuje sie metody do seriesow. A mean() to metoda
+                                                             seriesow wlasnie.
 """
 # import pandas as pd
 # df = pd.DataFrame.from_dict({
@@ -60,75 +55,61 @@ co nie działa ? ->                                               nie ma dostęp
 #     'STUDY_ABROAD': [1, 1, 0, 0, 0, 0, 0, 1, 1, 0]
 # })
 #
-# summary = df.groupby('IS_RICH')['STUDY_ABROAD'].agg(lambda x: x.mean())
-# print(summary)
+# def calculate_mean(group: pd.Series):
+#     mean = group.mean()
+#     return mean
+#
+# seriesgroups_generator = df.groupby('IS_RICH')['STUDY_ABROAD']
+#
+# summary_v0 = seriesgroups_generator.apply(calculate_mean)
+# summary_v1 = seriesgroups_generator.agg(lambda x: x.mean())
+# summary_v2 = seriesgroups_generator.mean()
+# assert summary_v0.values.tolist() == summary_v1.values.tolist() == summary_v2.values.tolist()
+# print(summary_v2)
 
 
 """******************************************
-FILTER 
+Dataframe(n) -> Series(n)
 ******************************************"""
-""" without (!) grouping """
-# import pandas as pd
-#
-# df = pd.DataFrame.from_dict({
-#     'X': [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
-#     'Y': [-100, -80, -60, -40, -20, 0, 20, 40, 60, 80]
-# })
-# # df = df[(abs(df.Y) <= 50)]
-# df[(abs(df.Y) <= 50)]
-# print(df)
-
-""" with grouping """ #TODO
-# df = get_some_df()
-# sth1 = 'artist'
-#
-# def some_func(series: pd.DataFrame) -> bool:
-#     # do sth
-#     return True
-#
-# iterator_of_dfs_grouped_by_sth1 = df.groupby(sth1)
-# filtered_df = iterator_of_dfs_grouped_by_sth1.filter(some_func)
-
-
-"""******************************************
-DF.apply()
-******************************************"""
-"""#########
-### axis=1 #
-#########"""
-"""-> po wierszach -> powstaje nowa kolumna"""
-# import pandas as pd
-# from typing import Any
-#
 # df = pd.DataFrame.from_dict({
 #     'width': [1, 2, 3],
 #     'length': [6, 5, 4]
 # })
 #
-# def area(single_row_df: pd.DataFrame) -> Any:
-#     return single_row_df['width'] * single_row_df['length']
+# def area(row: pd.DataFrame):
+#     return row['width'] * row['length']
 #
-# df = df.assign(
-#     area=df.apply(area, axis=1)
-# )
-#
-# print(df)
+# area = df.apply(area, axis=1)
+# print(area)
 
-"""#########
-### axis=0 #
-#########"""
-"""po kolumnach -> zachodzi pewnego rodzaju agregacja"""
+
+"""******************************************
+Dataframe(n) -> Dataframe(n) [group -> group]
+******************************************"""
 """
-Tutaj raczej nie przychodzi mi nic innego jak zagregowanie Series'a do jakiejs wartosci.
-Z tego powodu czesciej bedzie sie uzywalo gotowych funkcji zamiast customowych.
+        1. Czym jest jest group? ->                                                                           dataframem
+        2. Czym jest DataframeGroupBy? ->                                                  generatorem dataframów (grup)
+        3. Jaka magia dzieje sie w DataframeGroupBy.apply() ->                                       konkatenuje resulty 
 """
-# import pandas as pd
-#
 # df = pd.DataFrame.from_dict({
-#     'x': [1, 2, 3],
-#     'y': [6, 5, 4]
+#     'RACE':     ['BLACK',   'BLACK',    'WHITE',    'BLACK',    'BLACK',    'WHITE'],
+#     'SALARY':   [1200,      3000,       8000,        1400,      2500,       10000]
 # })
 #
-# geometric_center = df.apply(pd.Series.mean, axis=0)
+# def change_salary_accordingto_race(group: pd.DataFrame):
+#     race = group['RACE'].iloc[0]
+#     diff = -300 if race == 'BLACK' else 600
+#     group['SALARY'] += diff
+#     return group
 #
-# print(geometric_center)
+# groups_generator = df.groupby('RACE')
+# df = groups_generator.apply(change_salary_accordingto_race)
+
+
+"""******************************************
+Dataframe(n) -> Dataframe(n) [row -> row]
+******************************************"""
+"""
+        tak, jak w `Dataframe(n) -> Series(n)`, tylko `return row`
+"""
+
