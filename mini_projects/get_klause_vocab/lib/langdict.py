@@ -16,7 +16,8 @@ class LangDict:
         for fullword in self.fullwords:
             idioms = fullword.lower().split(' ')
             for idiom in idioms:
-                idioms_to_fullwords.setdefault(idiom, []).append(fullword)
+                # idioms_to_fullwords.setdefault(idiom, []).append(fullword)
+                idioms_to_fullwords.setdefault(idiom.rstrip('-').rstrip(','), []).append(fullword)
         if filtered == True:
             idioms_to_fullwords, most_common = self._filter_most_common(idioms_to_fullwords)
         return idioms_to_fullwords
@@ -34,12 +35,12 @@ class LangDict:
 
 
 
-from mini_projects.get_klause_vocab.klaus.paths_registry import PathsRegistry
-path_ = PathsRegistry.basic_db_txt.with_name('dict_klaus.xlsx')
-ld = LangDict(path_)
-
-assert ld.has_idiom('abbruch')
-assert not ld.has_idiom('abbruch2')
+# from mini_projects.get_klause_vocab.klaus.paths_registry import PathsRegistry
+# path_ = PathsRegistry.basic_db_txt.with_name('dict_klaus.xlsx')
+# ld = LangDict(path_)
+#
+# assert ld.has_idiom('abbruch')
+# assert not ld.has_idiom('abbruch2')
 
 
 """correctness test"""

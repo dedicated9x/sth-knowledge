@@ -112,21 +112,44 @@ def add_word(self, word_pl, word_de, factor=1.0):
     time.sleep(0.35)
     pyautogui.press('enter')
 
-"""part1"""
-# from mini_projects.get_klause_vocab.test.factories import get_pt1
-# pt1 = get_pt1()
+"""
+gt_s.txt
+99=1=NIEM=W³asne ...=
+44=1=NIEM=Rozdzial 4=
+45=1=NIEM=Rozdzial 5=
+46=1=NIEM=Rozdzial 6=
+47=1=NIEM=Rozdzial 7=
+48=1=NIEM=Rozdzial 8=
+49=1=NIEM=Rozdzial 9=
+50=1=NIEM=Rozdzial 10=
+51=1=NIEM=Rozdzial 11=
+52=1=NIEM=Rozdzial 12=
+53=1=NIEM=Rozdzial 13=
+54=1=NIEM=Rozdzial 14=
+"""
+
+
+
+"""__main__"""
+# import pandas as pd
 #
-# ct = 1
+# df = pd.read_excel(pl.Path(__file__).parent.parent.joinpath('static', 'fp_final.xlsx'), engine='openpyxl')
+# pt1 = df[df['CHAPTER'] == 6]
+# pt1 = pt1.astype(str)
 # self_ = AddWordView()
+# ct = 1
 # for row in pt1.iterrows():
-#     word_de = row[1]['de']
-#     word_pl = row[1]['pl']
+#     word_de = row[1]['DE']
+#     word_pl = row[1]['PL']
 #     add_word(self_, word_pl, word_de)
-#
 #     ct += 1
 #     print(ct)
 
 
+
+"""part1"""
+# from mini_projects.get_klause_vocab.test.factories import get_pt1
+# pt1 = get_pt1()
 
 """correctness tests"""
 # words_de = ["mittlere, Mittel-", "die Lendenwirbelsäule, die LWS", "die Mittelohrentzündung, die MOE", "die Hand", 'die Blinddarmentzündung, die Wurmfortsatzentzündung, die Appendizitis']
