@@ -30,7 +30,7 @@ coreapi==2.3.3
 coreschema==0.0.4
 cycler==0.10.0
 django-rest-swagger==2.2.0
-djangorestframework==3.11.0
+djangorestframework==3.11.2
 docutils==0.15.2
 future==0.18.2
 gTTS==2.1.1
