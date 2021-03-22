@@ -21,7 +21,11 @@ plot_predicted_hw <- function(series, seasonal_, periods) {
 }
 
 
-plot_onestep_hw(MaunLoaCo2, "mult")
+# series <- MaunLoaCo2
+# seasonal_ <- "mult"
+# periods <- 4*12
+
+seasonaldummyf()plot_onestep_hw(MaunLoaCo2, "mult")
 plot_predicted_hw(MaunLoaCo2, "mult", 4*12)
 
 plot_onestep_hw(MaunLoaCo2, "add")
