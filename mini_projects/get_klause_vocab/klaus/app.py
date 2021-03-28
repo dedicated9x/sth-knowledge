@@ -99,13 +99,15 @@ def add_word(self, word_pl, word_de, factor=1.0):
     KeyboardLayout.to_polish()
 
     # path_to_klaus_dir = pl.Path('E:\MedKlaus\Profesor Klaus 6.0 S³ownictwo')
-    path_to_wav = KlausTextToWavConverter(pl.Path(PATH_TO_KLAUS_DIR)).convert(word_de.rstrip('-'), verbose=0)
+    path_to_wav = KlausTextToWavConverter(pl.Path(PATH_TO_KLAUS_DIR)).convert(word_de.rstrip('-'), verbose=1)
     ClipboardController.save_to_clipboard(str(path_to_wav))
 
     pyautogui.click(self.load_record_button)
     time.sleep(0.2)
     pyautogui.hotkey('ctrl', 'v')
     time.sleep(0.25)
+    pyautogui.press('enter')
+    time.sleep(0.35)
     pyautogui.press('enter')
     time.sleep(0.35)
     pyautogui.press('enter')
@@ -134,7 +136,7 @@ gt_s.txt
 # import pandas as pd
 #
 # df = pd.read_excel(pl.Path(__file__).parent.parent.joinpath('static', 'fp_final.xlsx'), engine='openpyxl')
-# pt1 = df[df['CHAPTER'] == 6]
+# pt1 = df[df['CHAPTER'] == 14]
 # pt1 = pt1.astype(str)
 # self_ = AddWordView()
 # ct = 1
