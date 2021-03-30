@@ -11,7 +11,7 @@ PyGetWindow==0.0.8
 PyMsgBox==1.0.8
 PyRect==0.1.4
 PyTweening==1.0.3
-Pygments==2.6.1
+Pygments==2.7.4
 Werkzeug==1.0.1
 absl-py==0.9.0
 asgiref==3.2.7
