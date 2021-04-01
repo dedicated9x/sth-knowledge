@@ -17,12 +17,15 @@ class TextToMp3Converter:
         return auth
 
     @classmethod
-    def convert(cls, text_):
+    def convert(cls, text_, voice_id='Hans', is_simple=True):
         auth = cls._read_auth(PATH_TO_AUTH)
         polly_client = boto3.Session(**auth, region_name='us-west-2').client('polly')
-        text = f'<speak><prosody rate="{PROSODY_RATE}%">{text_}</prosody></speak>'
+        if is_simple:
+            text = f'<speak><prosody rate="{PROSODY_RATE}%">{text_}</prosody></speak>'
+        else:
+            text = text_
         response = polly_client.synthesize_speech(
-            VoiceId='Hans', OutputFormat='mp3', Text=text, TextType='ssml'
+            VoiceId=voice_id, OutputFormat='mp3', Text=text, TextType='ssml'
         )
         sound = response['AudioStream'].read()
         return sound
