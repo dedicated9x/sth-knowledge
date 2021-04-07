@@ -45,11 +45,7 @@ def gradient_descent(beta0, gradient_func, alpha, fitness_func=None, fitness_lim
     return beta, has_converged, fitness_log
 
 
-def polynomial_regression_gradient_descent(gradient_func, p, alpha):
-    beta0 = np.random.randn(1, p + 1)
-    fitness_func = lambda beta, beta_grad: np.linalg.norm(beta_grad)
-    beta, _, _ = gradient_descent(beta0, gradient_func, alpha, fitness_func, fitness_limit=1e-5)
-    return beta
+
 
 
 
@@ -57,24 +53,31 @@ if __name__ == "__main__":
     df = np.load(pl.Path(rf"C:\Users\devoted\Downloads\assignment22.npy"))
     xs = df[:, 0][:, np.newaxis]
     ys = df[:, 1][:, np.newaxis]
-    gradient_func = PolynomialRegressionLossFunction(xs, ys).calculate_gradient
 
 
-    vecs = [
-        polynomial_regression_gradient_descent(gradient_func, 1, 0.001),
-        polynomial_regression_gradient_descent(gradient_func, 2, 0.001),
-        # polynomial_regression_gradient_descent(gradient_func, 3, 0.0001),
-        # polynomial_regression_gradient_descent(gradient_func, 5, 0.000001)
-    ]
+    vecs = [gradient_descent(
+        beta0=np.random.randn(1, p + 1),
+        gradient_func=PolynomialRegressionLossFunction(xs, ys).calculate_gradient,
+        alpha=alpha_,
+        fitness_func=lambda beta, beta_grad: np.linalg.norm(beta_grad),
+        fitness_limit=1e-5
+    )[0] for (p, alpha_) in [
+        (1, 0.001),
+        (2, 0.001),
+        # (3, 0.0001),
+        # (5, 0.000001)
+    ]]
 
 
-    def plot_results(vecs_, xs_, ys_):
-        x_grid = np.linspace(xs_.min(), xs_.max(), 500)[:, np.newaxis]
-        fig, ax = plt.subplots()
-        for params_vec in vecs_:
-            ys_pred = polynomial_value(params_vec, x_grid)
-            ax.scatter(x_grid, ys_pred, marker='.', linewidths=1)
-        ax.scatter(xs_, ys_)
 
-    plot_results(vecs, xs, ys)
+
+    x_grid = np.linspace(xs.min(), xs.max(), 500)[:, np.newaxis]
+    fig, ax = plt.subplots()
+    for params_vec in vecs:
+        ys_pred = polynomial_value(params_vec, x_grid)
+        ax.scatter(x_grid, ys_pred, marker='.', linewidths=1)
+    ax.scatter(xs, ys)
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+
 

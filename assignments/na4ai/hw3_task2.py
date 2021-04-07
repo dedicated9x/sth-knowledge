@@ -1,7 +1,7 @@
 from assignments.na4ai.hw3_task1 import gradient_descent
 import matplotlib.pyplot as plt
-
 import numpy as np
+
 #function for generating random positive definite matrix
 def get_randQ( n):
     M = np.random.randn(n,n)
@@ -21,5 +21,10 @@ beta, has_converged, fitness_log = gradient_descent(
     break_limit=int(2e3)
 )
 
-print(fitness_log[-1])
-plt.scatter(range(len(fitness_log)), fitness_log)
+
+fig, ax = plt.subplots()
+ax.scatter(range(len(fitness_log)), fitness_log)
+ax.set_xlabel('no iteration')
+ax.set_ylabel('f(x)')
+
+print("Final f(x) =", fitness_log[-1])
