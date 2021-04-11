@@ -81,9 +81,9 @@ class Network(object):
                         for x, y in zip(sizes[:-1], sizes[1:])]
         self.regularization = None
         self.momentum_type = None
-        self.momentum = None
-        self.velWs = None
-        self.velBs = None
+        self.momentum = 0
+        self.velWs = [np.zeros(layer.shape) for layer in self.weights]
+        self.velBs = [np.zeros(layer.shape) for layer in self.biases]
 
     def feedforward(self, a):
         # Run the network on a batch
@@ -99,21 +99,25 @@ class Network(object):
         # eta is the learning rate
         nabla_b, nabla_w = self.backprop(mini_batch[0].T, mini_batch[1].T)
 
+        self.velWs = [self.momentum * velW + (eta / len(mini_batch[0])) * nw for velW, nw in zip(self.velWs, nabla_w)]
+        self.velBs = [self.momentum * velB + (eta / len(mini_batch[0])) * nb for velB, nb in zip(self.velBs, nabla_b)]
 
+        self.weights = [w - velW for w, velW in zip(self.weights, self.velWs)]
+        self.biases = [b - velB for b, velB in zip(self.biases, self.velBs)]
 
-        if self.momentum is not None:
-            self.velWs = [self.momentum * velW + (eta / len(mini_batch[0])) * nw for velW, nw in zip(self.velWs, nabla_w)]
-            self.velBs = [self.momentum * velB + (eta / len(mini_batch[0])) * nb for velB, nb in zip(self.velBs, nabla_b)]
-
-            self.weights = [w - velW for w, velW in zip(self.weights, self.velWs)]
-            self.biases = [b - velB for b, velB in zip(self.biases, self.velBs)]
-            # BUFF_VEL.append(np.linalg.norm(self.velWs[0].mean()))
-            # BUFF_GRAD.append(np.linalg.norm(nabla_w[0].mean()))
-
-
-        else:
-            self.weights = [w - (eta / len(mini_batch[0])) * nw for w, nw in zip(self.weights, nabla_w)]
-            self.biases = [b - (eta / len(mini_batch[0])) * nb for b, nb in zip(self.biases, nabla_b)]
+        # if self.momentum is not None:
+        #     self.velWs = [self.momentum * velW + (eta / len(mini_batch[0])) * nw for velW, nw in zip(self.velWs, nabla_w)]
+        #     self.velBs = [self.momentum * velB + (eta / len(mini_batch[0])) * nb for velB, nb in zip(self.velBs, nabla_b)]
+        #
+        #     self.weights = [w - velW for w, velW in zip(self.weights, self.velWs)]
+        #     self.biases = [b - velB for b, velB in zip(self.biases, self.velBs)]
+        #     # BUFF_VEL.append(np.linalg.norm(self.velWs[0].mean()))
+        #     # BUFF_GRAD.append(np.linalg.norm(nabla_w[0].mean()))
+        #
+        #
+        # else:
+        #     self.weights = [w - (eta / len(mini_batch[0])) * nw for w, nw in zip(self.weights, nabla_w)]
+        #     self.biases = [b - (eta / len(mini_batch[0])) * nb for b, nb in zip(self.biases, nabla_b)]
 
 
     def backprop(self, x, y):
@@ -156,8 +160,6 @@ class Network(object):
             x_test, y_test = test_data
         if self.momentum_type is not None:
             self.momentum = MOMENTUM
-            self.velWs = [np.zeros(layer.shape) for layer in self.weights]
-            self.velBs = [np.zeros(layer.shape) for layer in self.biases]
         for j in range(epochs):
             for i in range(x_train.shape[0] // mini_batch_size):
                 x_mini_batch = x_train[(mini_batch_size * i):(mini_batch_size * (i + 1))]
@@ -171,7 +173,7 @@ class Network(object):
 np.random.seed(0)
 network = Network([784, 30, 10])
 # network.regularization = 'L2'
-# network.momentum_type = 'regular'
+network.momentum_type = 'regular'
 network.SGD((x_train, y_train), epochs=10, mini_batch_size=100, eta=3.0, test_data=(x_test, y_test))
 
 
