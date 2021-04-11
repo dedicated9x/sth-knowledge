@@ -31,10 +31,9 @@ for i in range(50000):
     x = T_pt(x - t * A.T @ (A @ x - b))
     loss_log.append(loss_function(x))
 
-plt.scatter(range(len(loss_log)), loss_log)
+fig, ax = plt.subplots()
+ax.scatter(range(len(loss_log)), loss_log)
+ax.set_xlabel('no iteration')
+ax.set_ylabel('loss function')
 
 
-
-
-# z1 = x - t * A.T @ (A @ x - b)
-# z2 = np.array([2,0,4]).reshape(3, 1)
