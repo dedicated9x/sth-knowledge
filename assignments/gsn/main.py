@@ -25,6 +25,8 @@ import random
 import numpy as np
 from torchvision import datasets, transforms
 
+from decimal import Decimal
+# self.velWs[0].mean()
 
 # Let's read the mnist dataset
 
@@ -62,6 +64,12 @@ def sigmoid_prime(z):
     return sigmoid(z) * (1 - sigmoid(z))
 
 
+REG_RATE = 0.01
+MOMENTUM = 0.5
+
+BUFF_VEL = []
+BUFF_GRAD = []
+
 class Network(object):
     def __init__(self, sizes):
         # initialize biases and weights with random normal distr.
@@ -71,6 +79,11 @@ class Network(object):
         self.biases = [np.random.randn(y, 1) for y in sizes[1:]]
         self.weights = [np.random.randn(y, x)
                         for x, y in zip(sizes[:-1], sizes[1:])]
+        self.regularization = None
+        self.momentum_type = None
+        self.momentum = None
+        self.velWs = None
+        self.velBs = None
 
     def feedforward(self, a):
         # Run the network on a batch
@@ -86,10 +99,22 @@ class Network(object):
         # eta is the learning rate
         nabla_b, nabla_w = self.backprop(mini_batch[0].T, mini_batch[1].T)
 
-        self.weights = [w - (eta / len(mini_batch[0])) * nw
-                        for w, nw in zip(self.weights, nabla_w)]
-        self.biases = [b - (eta / len(mini_batch[0])) * nb
-                       for b, nb in zip(self.biases, nabla_b)]
+
+
+        if self.momentum is not None:
+            self.velWs = [self.momentum * velW + (eta / len(mini_batch[0])) * nw for velW, nw in zip(self.velWs, nabla_w)]
+            self.velBs = [self.momentum * velB + (eta / len(mini_batch[0])) * nb for velB, nb in zip(self.velBs, nabla_b)]
+
+            self.weights = [w - velW for w, velW in zip(self.weights, self.velWs)]
+            self.biases = [b - velB for b, velB in zip(self.biases, self.velBs)]
+            # BUFF_VEL.append(np.linalg.norm(self.velWs[0].mean()))
+            # BUFF_GRAD.append(np.linalg.norm(nabla_w[0].mean()))
+
+
+        else:
+            self.weights = [w - (eta / len(mini_batch[0])) * nw for w, nw in zip(self.weights, nabla_w)]
+            self.biases = [b - (eta / len(mini_batch[0])) * nb for b, nb in zip(self.biases, nabla_b)]
+
 
     def backprop(self, x, y):
         # For a single input (x,y) return a pair of lists.
@@ -111,6 +136,8 @@ class Network(object):
             dLdg = np.matmul(w.T, dLdf)
 
         dLdWs = [np.matmul(dLdf, g.T) for dLdf, g in zip(reversed(dLdfs), gs[:-1])]  # automatic here
+        if self.regularization == 'L2':
+            dLdWs = [dLdW + REG_RATE * w for dLdW, w in zip(dLdWs, self.weights)]
         dLdBs = [np.sum(dLdf, axis=1).reshape(dLdf.shape[0], 1) for dLdf in reversed(dLdfs)]  # CHANGE: Need to sum here
         return (dLdBs, dLdWs)
 
@@ -127,6 +154,10 @@ class Network(object):
         x_train, y_train = training_data
         if test_data:
             x_test, y_test = test_data
+        if self.momentum_type is not None:
+            self.momentum = MOMENTUM
+            self.velWs = [np.zeros(layer.shape) for layer in self.weights]
+            self.velBs = [np.zeros(layer.shape) for layer in self.biases]
         for j in range(epochs):
             for i in range(x_train.shape[0] // mini_batch_size):
                 x_mini_batch = x_train[(mini_batch_size * i):(mini_batch_size * (i + 1))]
@@ -139,6 +170,8 @@ class Network(object):
 
 np.random.seed(0)
 network = Network([784, 30, 10])
+# network.regularization = 'L2'
+# network.momentum_type = 'regular'
 network.SGD((x_train, y_train), epochs=10, mini_batch_size=100, eta=3.0, test_data=(x_test, y_test))
 
 
@@ -152,3 +185,15 @@ network.SGD((x_train, y_train), epochs=10, mini_batch_size=100, eta=3.0, test_da
 # Epoch: 7, Accuracy: 0.9131
 # Epoch: 8, Accuracy: 0.9161
 # Epoch: 9, Accuracy: 0.9185
+
+"""
+vanilla         0.94/32
+L2 0.01         0.94/10     0.95/27 
+Momentum 0.5    0.94/16     
+"""
+
+# self = network
+#
+# import matplotlib.pyplot as plt
+# plt.scatter(range(600), BUFF_VEL)
+# plt.scatter(range(600), BUFF_GRAD)
