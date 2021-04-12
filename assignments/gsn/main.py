@@ -67,8 +67,7 @@ def sigmoid_prime(z):
 REG_RATE = 0.01
 MOMENTUM = 0.5
 
-BUFF_VEL = []
-BUFF_GRAD = []
+BUFF = []
 
 class Network(object):
     def __init__(self, sizes):
@@ -84,6 +83,8 @@ class Network(object):
         self.momentum = 0
         self.velWs = [np.zeros(layer.shape) for layer in self.weights]
         self.velBs = [np.zeros(layer.shape) for layer in self.biases]
+        self.GWs = [np.zeros(layer.shape) for layer in self.weights]
+        self.GBs = [np.zeros(layer.shape) for layer in self.biases]
 
     def feedforward(self, a):
         # Run the network on a batch
@@ -99,26 +100,28 @@ class Network(object):
         # eta is the learning rate
         nabla_b, nabla_w = self.backprop(mini_batch[0].T, mini_batch[1].T)
 
+        self.GWs = [GW + nw ** 2 for GW, nw in zip(self.GWs, nabla_w)]
+        self.GBs = [GB + nb ** 2 for GB, nb in zip(self.GBs, nabla_b)]
+        # BUFF.append(self.GWs[0].mean())
+
+        # self.GWs[0].mean()
+        # nabla_w[0].mean()
+        #
+        # GW_2 = self.GWs[0] ** 2
+        # nabla_2 = nabla_w[0] ** 2
+        # res = GW_2 + nabla_2
+        #
+        # GW_2.mean()
+        # nabla_2.mean()
+        # res.mean()
+
+        # TODO rozbic ponizsze na dwa etapy
+
         self.velWs = [self.momentum * velW + (eta / len(mini_batch[0])) * nw for velW, nw in zip(self.velWs, nabla_w)]
         self.velBs = [self.momentum * velB + (eta / len(mini_batch[0])) * nb for velB, nb in zip(self.velBs, nabla_b)]
 
         self.weights = [w - velW for w, velW in zip(self.weights, self.velWs)]
         self.biases = [b - velB for b, velB in zip(self.biases, self.velBs)]
-
-        # if self.momentum is not None:
-        #     self.velWs = [self.momentum * velW + (eta / len(mini_batch[0])) * nw for velW, nw in zip(self.velWs, nabla_w)]
-        #     self.velBs = [self.momentum * velB + (eta / len(mini_batch[0])) * nb for velB, nb in zip(self.velBs, nabla_b)]
-        #
-        #     self.weights = [w - velW for w, velW in zip(self.weights, self.velWs)]
-        #     self.biases = [b - velB for b, velB in zip(self.biases, self.velBs)]
-        #     # BUFF_VEL.append(np.linalg.norm(self.velWs[0].mean()))
-        #     # BUFF_GRAD.append(np.linalg.norm(nabla_w[0].mean()))
-        #
-        #
-        # else:
-        #     self.weights = [w - (eta / len(mini_batch[0])) * nw for w, nw in zip(self.weights, nabla_w)]
-        #     self.biases = [b - (eta / len(mini_batch[0])) * nb for b, nb in zip(self.biases, nabla_b)]
-
 
     def backprop(self, x, y):
         # For a single input (x,y) return a pair of lists.
@@ -173,7 +176,8 @@ class Network(object):
 np.random.seed(0)
 network = Network([784, 30, 10])
 # network.regularization = 'L2'
-network.momentum_type = 'regular'
+# network.momentum_type = 'regular'
+network.decay = 'adagrad'
 network.SGD((x_train, y_train), epochs=10, mini_batch_size=100, eta=3.0, test_data=(x_test, y_test))
 
 
@@ -194,8 +198,5 @@ L2 0.01         0.94/10     0.95/27
 Momentum 0.5    0.94/16     
 """
 
-# self = network
-#
 # import matplotlib.pyplot as plt
-# plt.scatter(range(600), BUFF_VEL)
-# plt.scatter(range(600), BUFF_GRAD)
+# plt.scatter(range(600), BUFF)
