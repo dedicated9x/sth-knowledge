@@ -150,7 +150,7 @@ class Network(object):
 (x_train, y_train), (x_test, y_test) = load_mnist(rf"C:\Datasets")
 np.random.seed(0)
 network = Network([784, 30, 10])
-network.SGD((x_train, y_train), epochs=10, mini_batch_size=100, eta=3.0, test_data=(x_test, y_test))
+network.SGD((x_train, y_train), epochs=500, mini_batch_size=100, eta=3.0, test_data=(x_test, y_test))
 
 # Epoch: 0, Accuracy: 0.4581
 # Epoch: 1, Accuracy: 0.7381
@@ -163,5 +163,4 @@ network.SGD((x_train, y_train), epochs=10, mini_batch_size=100, eta=3.0, test_da
 # Epoch: 8, Accuracy: 0.8706
 # Epoch: 9, Accuracy: 0.8746
 
-# TODO refaktor
 # TODO L2 vs dropout na 500 epochów
