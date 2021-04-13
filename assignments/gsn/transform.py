@@ -1,15 +1,14 @@
 import numpy as np
 
-prev = np.zeros((6, 17))
-_next = np.zeros((10, 6))
-for idx, value in np.ndenumerate(prev):
-    prev[idx] = idx[0] + 0.01 * idx[1]
+WL = np.zeros((6, 17))
+WR = np.zeros((10, 6))
+for idx, value in np.ndenumerate(WL):
+    WL[idx] = idx[0] + 0.01 * idx[1]
 
-for idx, value in np.ndenumerate(_next):
-    _next[idx] = idx[1] + 0.01 * idx[0]
+for idx, value in np.ndenumerate(WR):
+    WR[idx] = idx[1] + 0.01 * idx[0]
 
-# TODO prev - zredukuj i odtwórz
-prev_b = 1 + 0.01 * np.arange(0, 6)[:, np.newaxis]
+BL = 1 + 0.01 * np.arange(0, 6)[:, np.newaxis]
 
 class Reducer:
     def __init__(self):
@@ -21,36 +20,38 @@ class Reducer:
             self.mask[survivor_list[col_idx], col_idx] = 1
         return self
 
-    def transform(self, arr, side):
-        if side == 'prev':
+    def _transform_array(self, arr, side):
+        if side == 'left':
             return (arr.T @ self.mask).T
-        elif side == 'next':
+        elif side == 'right':
             return arr @ self.mask
 
-    def inverse_transform(self, arr, side):
-        if side == 'prev':
+    def _inverse_transform_array(self, arr, side):
+        if side == 'left':
             return (arr.T @ self.mask.T).T
-        elif side == 'next':
+        elif side == 'right':
             return arr @ self.mask.T
 
+    def transform(self, wl, bl, wr):
+        return [self._transform_array(arr, side) for arr, side in zip([wl, bl, wr], ['left', 'left', 'right'])]
+
+    def inverse_transform(self, wl, bl, wr):
+        return [self._inverse_transform_array(arr, side) for arr, side in zip([wl, bl, wr], ['left', 'left', 'right'])]
 
 
 
-layer_size = prev.shape[0]
+layer_size = WL.shape[0]
 """survivors = np.random.choice(layer_size, int(layer_size/2), replace=False)"""
 survivor_list = np.array([0, 2, 3])
 
 
 rdcr = Reducer().fit(survivor_list, layer_size)
-prev_reduced = rdcr.transform(prev, side='prev')
-grad_prev_reduced = 10 * np.ones_like(prev_reduced)
-grad_prev = rdcr.inverse_transform(grad_prev_reduced, side='prev')
+_d = lambda x: 10 * np.ones_like(x)
 
-next_reduced = rdcr.transform(_next, side='next')
-grad_next_reduced = 10 * np.ones_like(next_reduced)
-grad_next = rdcr.inverse_transform(grad_next_reduced, side='next')
+WL_red, BL_red, WR_red = rdcr.transform(WL, BL, WR)
+dWL, dBL, dWR = rdcr.inverse_transform(_d(WL_red), _d(BL_red), _d(WR_red))
 
-prev_b_reduced = rdcr.transform(prev_b, side='prev')
-grad_prev_b_reduced = 10 * np.ones_like(prev_b_reduced)
-grad_prev_b = rdcr.inverse_transform(grad_prev_b_reduced, side='prev')
-# grad_prev_b = (grad_prev_b_reduced.T @ rdcr.mask.T).T
+assert WL.shape == dWL.shape
+assert WR.shape == dWR.shape
+assert BL.shape == dBL.shape
+
