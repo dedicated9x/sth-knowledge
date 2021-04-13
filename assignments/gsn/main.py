@@ -24,6 +24,8 @@ Try to test your network to see if these changes improve accuracy. They improve 
 import random
 import numpy as np
 from torchvision import datasets, transforms
+import matplotlib.pyplot as plt
+
 
 from decimal import Decimal
 # self.velWs[0].mean()
@@ -52,7 +54,7 @@ def load_mnist(path='.'):
 
 
 # (x_train, y_train), (x_test, y_test) = load_mnist()
-(x_train, y_train), (x_test, y_test) = load_mnist(rf"C:\Datasets")
+# (x_train, y_train), (x_test, y_test) = load_mnist(rf"C:\Datasets")
 
 
 def sigmoid(z):
@@ -69,6 +71,53 @@ MOMENTUM = 0.5
 
 BUFF = []
 
+""" 20 degree clockwise"""
+# a = np.array([
+#     [0.940, 0.342],
+#     [-0.342, 0.940]
+# ])
+# b = np.array([-3.94, 5.63])
+
+""" 10 degree clockwise"""
+a = np.array([
+    [0.985, 0.174],
+    [-0.174, 0.985]
+])
+b = np.array([-2.22, 2.64])
+
+
+""" 5 degree clockwise"""
+# a = np.array([
+#     [0.996, 0.0872],
+#     [-0.0872, 0.996]
+# ])
+# b = np.array([-1.17, 1.27])
+
+# TODO obrocic
+def plot_samples(samples):
+    fig, subplots = plt.subplots(1, len(samples))
+    fig.set_size_inches(15, 15)
+
+    for s, ax in zip(samples, subplots.flatten()):
+        ax.imshow(np.reshape(s, [28, 28]), cmap='gray')
+        ax.axis('off')
+
+def rotate(arr, a, b):
+    arr1 = np.zeros_like(arr.reshape(28, 28))
+    for index, value in np.ndenumerate(arr.reshape(28, 28)):
+        # index1 = (index @ a + b).astype(int)
+        index1 = (index @ a - b).astype(int)
+        if index1[0] < 0 or index1[0] > 27:
+            continue
+        if index1[1] < 0 or index1[1] > 27:
+            continue
+        arr1[index1[0], index1[1]] = value
+    arr1 = arr1.reshape(arr.shape)
+    return arr1
+
+
+
+
 class Network(object):
     def __init__(self, sizes):
         # initialize biases and weights with random normal distr.
@@ -80,11 +129,12 @@ class Network(object):
                         for x, y in zip(sizes[:-1], sizes[1:])]
         self.regularization = None
         self.momentum_type = None
+        self.decay = None
         self.momentum = 0
         self.velWs = [np.zeros(layer.shape) for layer in self.weights]
         self.velBs = [np.zeros(layer.shape) for layer in self.biases]
-        self.GWs = [np.zeros(layer.shape) for layer in self.weights]
-        self.GBs = [np.zeros(layer.shape) for layer in self.biases]
+        self.GWs = [np.ones(layer.shape) for layer in self.weights]
+        self.GBs = [np.ones(layer.shape) for layer in self.biases]
 
     def feedforward(self, a):
         # Run the network on a batch
@@ -100,25 +150,16 @@ class Network(object):
         # eta is the learning rate
         nabla_b, nabla_w = self.backprop(mini_batch[0].T, mini_batch[1].T)
 
-        self.GWs = [GW + nw ** 2 for GW, nw in zip(self.GWs, nabla_w)]
-        self.GBs = [GB + nb ** 2 for GB, nb in zip(self.GBs, nabla_b)]
-        # BUFF.append(self.GWs[0].mean())
+        if self.decay == 'adagrad':
+            self.GWs = [GW + nw ** 2 for GW, nw in zip(self.GWs, nabla_w)]
+            self.GBs = [GB + nb ** 2 for GB, nb in zip(self.GBs, nabla_b)]
 
-        # self.GWs[0].mean()
-        # nabla_w[0].mean()
-        #
-        # GW_2 = self.GWs[0] ** 2
-        # nabla_2 = nabla_w[0] ** 2
-        # res = GW_2 + nabla_2
-        #
-        # GW_2.mean()
-        # nabla_2.mean()
-        # res.mean()
+        epsilon = 1e-8
+        scaled_nabla_w = [(eta / np.sqrt(GW + epsilon)) * (1 / len(mini_batch[0])) * nw for nw, GW in zip(nabla_w, self.GWs)]
+        scaled_nabla_b = [(eta / np.sqrt(GB + epsilon)) * (1 / len(mini_batch[0])) * nb for nb, GB in zip(nabla_b, self.GBs)]
 
-        # TODO rozbic ponizsze na dwa etapy
-
-        self.velWs = [self.momentum * velW + (eta / len(mini_batch[0])) * nw for velW, nw in zip(self.velWs, nabla_w)]
-        self.velBs = [self.momentum * velB + (eta / len(mini_batch[0])) * nb for velB, nb in zip(self.velBs, nabla_b)]
+        self.velWs = [self.momentum * velW + nw for velW, nw in zip(self.velWs, scaled_nabla_w)]
+        self.velBs = [self.momentum * velB + nb for velB, nb in zip(self.velBs, scaled_nabla_b)]
 
         self.weights = [w - velW for w, velW in zip(self.weights, self.velWs)]
         self.biases = [b - velB for b, velB in zip(self.biases, self.velBs)]
@@ -163,6 +204,10 @@ class Network(object):
             x_test, y_test = test_data
         if self.momentum_type is not None:
             self.momentum = MOMENTUM
+        if self.decay == 'adagrad':
+            self.GWs = [np.zeros(layer.shape) for layer in self.weights]
+            self.GBs = [np.zeros(layer.shape) for layer in self.biases]
+
         for j in range(epochs):
             for i in range(x_train.shape[0] // mini_batch_size):
                 x_mini_batch = x_train[(mini_batch_size * i):(mini_batch_size * (i + 1))]
@@ -173,13 +218,22 @@ class Network(object):
             else:
                 print("Epoch: {0}".format(j))
 
+(x_train, y_train), (x_test, y_test) = load_mnist(rf"C:\Datasets")
+"""data augmentation"""
+# arr_list = [(x_train[i], rotate(x_train[i], a, b)) for i in range(5)]
+# arr_list = list(sum(arr_list, ()))
+# plot_samples(arr_list)
+# x_rotated = [rotate(x, a, b) for x in x_train[:10000]]
+# x_train = np.concatenate((x_train, np.array(x_rotated)), axis=0)
+# y_train = np.concatenate((y_train, y_train[:10000]), axis=0)
+"""main"""
 np.random.seed(0)
 network = Network([784, 30, 10])
 # network.regularization = 'L2'
 # network.momentum_type = 'regular'
-network.decay = 'adagrad'
+# network.decay = 'adagrad'
+"""main"""
 network.SGD((x_train, y_train), epochs=10, mini_batch_size=100, eta=3.0, test_data=(x_test, y_test))
-
 
 # Epoch: 0, Accuracy: 0.5713
 # Epoch: 1, Accuracy: 0.6972
@@ -193,10 +247,10 @@ network.SGD((x_train, y_train), epochs=10, mini_batch_size=100, eta=3.0, test_da
 # Epoch: 9, Accuracy: 0.9185
 
 """
-vanilla         0.94/32
-L2 0.01         0.94/10     0.95/27 
-Momentum 0.5    0.94/16     
+vanilla                             0.94/32
+L2 0.01                             0.94/10     0.95/27 
+Momentum 0.5                        0.94/16     
+Adagrad                 0.93/49
+10k rotated 20deg                   0.94/36
 """
 
-# import matplotlib.pyplot as plt
-# plt.scatter(range(600), BUFF)
