@@ -1,7 +1,3 @@
-
-
-
-# TODO type="input", type="output"
 """
 x = Node('x', None, [])
 y = Node('y', None, [])
@@ -40,6 +36,8 @@ class Node:
         self.parents = []
         self.value = None
         self.grad = None
+        if type_ == 'output':
+            self.grad = 1.
         self.type_ = type_
 
     def __repr__(self):
@@ -50,10 +48,29 @@ class Node:
 
     def calculate_value(self):
         self.value = self.func(**self.children_dict())
-        # return 1
 
     def calculate_grad(self):
         self.grad = sum([p.grad * partial_derivate(p.func, self.id)(**p.children_dict()) for p in self.parents])
+
+
+class Backprop:
+    def __init__(self, system, direct_func):
+        self.system = system
+        self.direct_func = direct_func
+
+    def forward(self):
+        _ = [node.calculate_value() for node in self.system if node.type_ != 'input']
+
+    def backward(self):
+        _ = [node.calculate_grad() for node in self.system[::-1] if node.type_ != 'output']
+
+    def check(self):
+        input_nodes = [node for node in self.system if node.type_ == 'input']
+        input_dict = {e.id: e.value for e in input_nodes}
+        backprop_grad = [e.grad for e in input_nodes]
+        direct_grad = [partial_derivate(self.direct_func, k)(**input_dict) for k in input_dict.keys()]
+        print(f'Backpropagation gradient:   {backprop_grad} \n'
+              f'Direct gradient:            {direct_grad}')
 
 x = Node('x', None, [], type_='input')
 y = Node('y', None, [], type_='input')
@@ -64,25 +81,15 @@ v3 = Node('v3', lambda v1: v1 ** 2, [v1])
 v4 = Node('v4', lambda v2: np.exp(v2), [v2])
 v5 = Node('v5', lambda v3, v4: v3 + v4, [v3, v4], type_='output')
 
-system = [x, y, z, v1, v2, v3, v4, v5]
+bp = Backprop([x, y, z, v1, v2, v3, v4, v5], lambda x, y, z: (x * y + z) ** 2 + np.exp(x - y * z))
 
-x.value = 1.
-y.value = 2.
-z.value = 0.
-_ = [node.calculate_value() for node in system if node.type_ != 'input']
-v5.grad = 1
-_ = [node.calculate_grad() for node in system[::-1] if node.type_ != 'output']
-
-input_nodes = [node for node in system if node.type_ == 'input']
-
-input_dict = {e.id: e.value for e in input_nodes}
-
-backprop_grad = [e.grad for e in input_nodes]
-direct_func = lambda x, y, z: (x * y + z) ** 2 + np.exp(x - y * z)
-direct_grad = [partial_derivate(direct_func, k)(**input_dict) for k in input_dict.keys()]
+x.value, y.value, z.value = 1., 2., 0.
+bp.forward()
+bp.backward()
+bp.check()
 
 
-# TODO na koniec dac do klasy 'Backprop'
+
 # TODO wklepanie tego plebsu
 
 
