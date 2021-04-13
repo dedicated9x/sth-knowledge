@@ -24,7 +24,8 @@ Try to test your network to see if these changes improve accuracy. They improve 
 import random
 import numpy as np
 from torchvision import datasets, transforms
-
+from assignments.gsn.transform import Reducer
+import copy
 
 # Let's read the mnist dataset
 
@@ -84,10 +85,8 @@ class Network(object):
         # eta is the learning rate
         nabla_b, nabla_w = self.backprop(mini_batch[0].T, mini_batch[1].T)
 
-        self.weights = [w - (eta / len(mini_batch[0])) * nw
-                        for w, nw in zip(self.weights, nabla_w)]
-        self.biases = [b - (eta / len(mini_batch[0])) * nb
-                       for b, nb in zip(self.biases, nabla_b)]
+        self.weights = [w - (eta / len(mini_batch[0])) * nw for w, nw in zip(self.weights, nabla_w)]
+        self.biases = [b - (eta / len(mini_batch[0])) * nb for b, nb in zip(self.biases, nabla_b)]
 
     def backprop(self, x, y):
         # For a single input (x,y) return a pair of lists.
@@ -95,7 +94,27 @@ class Network(object):
         g = x
         gs = [g]  # list to store all the gs, layer by layer
         fs = []  # list to store all the fs, layer by layer
-        for b, w in zip(self.biases, self.weights):
+
+
+        # TODO tutaj trzeba to podstawic
+
+        weights = copy.deepcopy(self.weights)
+        biases = copy.deepcopy(self.biases)
+
+        layer_size = self.weights[0].shape[0]
+        survivor_list = np.random.choice(layer_size, int(layer_size/2), replace=False)
+        rdcr = Reducer().fit(survivor_list, layer_size)
+        wl = self.weights[0]
+        bl = self.biases[0]
+        wr = self.weights[1]
+        wl_red, bl_red, wr_red = rdcr.transform(wl, bl, wr)
+        weights[0] = wl_red
+        biases[0] = bl_red
+        weights[1] = wr_red
+        a = 1
+
+
+        for b, w in zip(biases, weights):
             f = np.dot(w, g) + b
             fs.append(f)
             g = sigmoid(f)
@@ -103,13 +122,22 @@ class Network(object):
         # backward pass <- both steps at once
         dLdg = self.cost_derivative(gs[-1], y)
         dLdfs = []
-        for w, g in reversed(list(zip(self.weights, gs[1:]))):
+        for w, g in reversed(list(zip(weights, gs[1:]))):
             dLdf = np.multiply(dLdg, np.multiply(g, 1 - g))
             dLdfs.append(dLdf)
             dLdg = np.matmul(w.T, dLdf)
 
         dLdWs = [np.matmul(dLdf, g.T) for dLdf, g in zip(reversed(dLdfs), gs[:-1])]  # automatic here
         dLdBs = [np.sum(dLdf, axis=1).reshape(dLdf.shape[0], 1) for dLdf in reversed(dLdfs)]  # CHANGE: Need to sum here
+
+        dwl_red = dLdWs[0]
+        dbl_red = dLdBs[0]
+        dwr_red = dLdWs[1]
+        dwl, dbl, dwr = rdcr.inverse_transform(dwl_red, dbl_red, dwr_red)
+        dLdWs[0] = dwl
+        dLdBs[0] = dbl
+        dLdWs[1] = dwr
+
         return (dLdBs, dLdWs)
 
     def evaluate(self, test_data):
@@ -140,13 +168,16 @@ np.random.seed(0)
 network = Network([784, 30, 10])
 network.SGD((x_train, y_train), epochs=10, mini_batch_size=100, eta=3.0, test_data=(x_test, y_test))
 
-# Epoch: 0, Accuracy: 0.5713
-# Epoch: 1, Accuracy: 0.6972
-# Epoch: 2, Accuracy: 0.7167
-# Epoch: 3, Accuracy: 0.7282
-# Epoch: 4, Accuracy: 0.8319
-# Epoch: 5, Accuracy: 0.9058
-# Epoch: 6, Accuracy: 0.9104
-# Epoch: 7, Accuracy: 0.9131
-# Epoch: 8, Accuracy: 0.9161
-# Epoch: 9, Accuracy: 0.9185
+# Epoch: 0, Accuracy: 0.4581
+# Epoch: 1, Accuracy: 0.7381
+# Epoch: 2, Accuracy: 0.8036
+# Epoch: 3, Accuracy: 0.8137
+# Epoch: 4, Accuracy: 0.8326
+# Epoch: 5, Accuracy: 0.8449
+# Epoch: 6, Accuracy: 0.8599
+# Epoch: 7, Accuracy: 0.8673
+# Epoch: 8, Accuracy: 0.8706
+# Epoch: 9, Accuracy: 0.8746
+
+# TODO refaktor
+# TODO L2 vs dropout na 500 epochów
