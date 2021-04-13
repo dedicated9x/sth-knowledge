@@ -15,6 +15,7 @@ import numpy as np
 
 def partial_derivate(base_func, var_name):
     h = 0.0001
+    # h = 0.00001
     def wrapper(*args, **params):
         alt_params = params.copy()
         alt_params[var_name] += h
@@ -72,24 +73,90 @@ class Backprop:
         print(f'Backpropagation gradient:   {backprop_grad} \n'
               f'Direct gradient:            {direct_grad}')
 
-x = Node('x', None, [], type_='input')
-y = Node('y', None, [], type_='input')
-z = Node('z', None, [], type_='input')
-v1 = Node('v1', lambda x, y, z: x * y + z, [x, y, z])
-v2 = Node('v2', lambda x, y, z: x - y * z, [x, y, z])
-v3 = Node('v3', lambda v1: v1 ** 2, [v1])
-v4 = Node('v4', lambda v2: np.exp(v2), [v2])
-v5 = Node('v5', lambda v3, v4: v3 + v4, [v3, v4], type_='output')
 
-bp = Backprop([x, y, z, v1, v2, v3, v4, v5], lambda x, y, z: (x * y + z) ** 2 + np.exp(x - y * z))
+def sigmoid(x):
+    return 1 / (1 + np.exp(-1. * x))
 
-x.value, y.value, z.value = 1., 2., 0.
-bp.forward()
-bp.backward()
-bp.check()
+def relu(x):
+    return np.maximum(0, x)
+
+"""GRAPH 1 """
+# x = Node('x', None, [], type_='input')
+# y = Node('y', None, [], type_='input')
+# z = Node('z', None, [], type_='input')
+# v1 = Node('v1', lambda x, y, z: x * y + z, [x, y, z])
+# v2 = Node('v2', lambda x, y, z: x - y * z, [x, y, z])
+# v3 = Node('v3', lambda v1: v1 ** 2, [v1])
+# v4 = Node('v4', lambda v2: np.exp(v2), [v2])
+# v5 = Node('v5', lambda v3, v4: v3 + v4, [v3, v4], type_='output')
+#
+# bp = Backprop([x, y, z, v1, v2, v3, v4, v5], lambda x, y, z: (x * y + z) ** 2 + np.exp(x - y * z))
+#
+# x.value, y.value, z.value = 1., 2., 1.
+# bp.forward()
+# bp.backward()
+# bp.check()
+
+
+"""GRAPH 2 """
+# x = Node('x', None, [], type_='input')
+# y = Node('y', None, [], type_='input')
+# z = Node('z', None, [], type_='input')
+# v1 = Node('v1', lambda x, y, z: x * y + x * z, [x, y, z])
+# v2 = Node('v2', lambda x, y, z: x * z - y * z, [x, y, z])
+# v3 = Node('v3', lambda v1: sigmoid(v1), [v1])
+# v4 = Node('v4', lambda v2: np.arctan(v2), [v2])
+# v5 = Node('v5', lambda v3, v4: v3 + v4, [v3, v4], type_='output')
+#
+# bp = Backprop([x, y, z, v1, v2, v3, v4, v5], lambda x, y, z: sigmoid(x * y + x * z) + np.arctan(x * z - y * z))
+#
+# x.value, y.value, z.value = 1., 1., 1.
+# bp.forward()
+# bp.backward()
+# bp.check()
+
+"""GRAPH 3 """
+# x = Node('x', None, [], type_='input')
+# y = Node('y', None, [], type_='input')
+# v1 = Node('v1', lambda x, y: 2 * x + y, [x, y])
+# v2 = Node('v2', lambda x, y: x - 2 * y, [x, y])
+# v3 = Node('v3', lambda v1: sigmoid(v1), [v1])
+# v4 = Node('v4', lambda v2: sigmoid(v2), [v2])
+# v5 = Node('v5', lambda v3, v4: v3 - v4, [v3, v4])
+# v6 = Node('v6', lambda v3, v4: v3 + v4, [v3, v4])
+# v7 = Node('v7', lambda v5: sigmoid(v5), [v5])
+# v8 = Node('v8', lambda v6: sigmoid(v6), [v6])
+# v9 = Node('v9', lambda v7, v8: v7 + v8, [v7, v8], type_='output')
+#
+# bp = Backprop([x, y, v1, v2, v3, v4, v5, v6, v7, v8, v9], lambda x, y: sigmoid(sigmoid(2 * x + y) - sigmoid(x - 2 * y)) + sigmoid(sigmoid(2 * x + y) + sigmoid(x - 2 * y)))
+#
+# x.value, y.value = 1., 1.
+# bp.forward()
+# bp.backward()
+# bp.check()
+
+
+"""GRAPH 4 """
+# x = Node('x', None, [], type_='input')
+# y = Node('y', None, [], type_='input')
+# v1 = Node('v1', lambda x, y: 2 * x + y, [x, y])
+# v2 = Node('v2', lambda x, y: x - 2 * y, [x, y])
+# v3 = Node('v3', lambda v1: relu(v1), [v1])
+# v4 = Node('v4', lambda v2: relu(v2), [v2])
+# v5 = Node('v5', lambda v3, v4: v3 - v4, [v3, v4])
+# v6 = Node('v6', lambda v3, v4: v3 + v4, [v3, v4])
+# v7 = Node('v7', lambda v5: relu(v5), [v5])
+# v8 = Node('v8', lambda v6: relu(v6), [v6])
+# v9 = Node('v9', lambda v7, v8: v7 + v8, [v7, v8], type_='output')
+#
+# bp = Backprop([x, y, v1, v2, v3, v4, v5, v6, v7, v8, v9], lambda x, y: relu(relu(2 * x + y) - relu(x - 2 * y)) + relu(relu(2 * x + y) + relu(x - 2 * y)))
+#
+# x.value, y.value = 1., 1.
+# bp.forward()
+# bp.backward()
+# bp.check()
 
 
 
-# TODO wklepanie tego plebsu
 
 
