@@ -73,7 +73,16 @@ _ = [node.calculate_value() for node in system if node.type_ != 'input']
 v5.grad = 1
 _ = [node.calculate_grad() for node in system[::-1] if node.type_ != 'output']
 
+input_nodes = [node for node in system if node.type_ == 'input']
 
-# TODO direct grad
+input_dict = {e.id: e.value for e in input_nodes}
+
+backprop_grad = [e.grad for e in input_nodes]
+direct_func = lambda x, y, z: (x * y + z) ** 2 + np.exp(x - y * z)
+direct_grad = [partial_derivate(direct_func, k)(**input_dict) for k in input_dict.keys()]
+
+
+# TODO na koniec dac do klasy 'Backprop'
+# TODO wklepanie tego plebsu
 
 
