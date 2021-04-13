@@ -96,23 +96,14 @@ class Network(object):
         fs = []  # list to store all the fs, layer by layer
 
 
-        # TODO tutaj trzeba to podstawic
-
         weights = copy.deepcopy(self.weights)
         biases = copy.deepcopy(self.biases)
 
+        # Size reduction
         layer_size = self.weights[0].shape[0]
         survivor_list = np.random.choice(layer_size, int(layer_size/2), replace=False)
         rdcr = Reducer().fit(survivor_list, layer_size)
-        wl = self.weights[0]
-        bl = self.biases[0]
-        wr = self.weights[1]
-        wl_red, bl_red, wr_red = rdcr.transform(wl, bl, wr)
-        weights[0] = wl_red
-        biases[0] = bl_red
-        weights[1] = wr_red
-        a = 1
-
+        weights[0], biases[0], weights[1] = rdcr.transform(weights[0], biases[0], weights[1])
 
         for b, w in zip(biases, weights):
             f = np.dot(w, g) + b
@@ -129,15 +120,8 @@ class Network(object):
 
         dLdWs = [np.matmul(dLdf, g.T) for dLdf, g in zip(reversed(dLdfs), gs[:-1])]  # automatic here
         dLdBs = [np.sum(dLdf, axis=1).reshape(dLdf.shape[0], 1) for dLdf in reversed(dLdfs)]  # CHANGE: Need to sum here
-
-        dwl_red = dLdWs[0]
-        dbl_red = dLdBs[0]
-        dwr_red = dLdWs[1]
-        dwl, dbl, dwr = rdcr.inverse_transform(dwl_red, dbl_red, dwr_red)
-        dLdWs[0] = dwl
-        dLdBs[0] = dbl
-        dLdWs[1] = dwr
-
+        # Back to previous size.
+        dLdWs[0], dLdBs[0], dLdWs[1] = rdcr.inverse_transform(dLdWs[0], dLdBs[0], dLdWs[1])
         return (dLdBs, dLdWs)
 
     def evaluate(self, test_data):
