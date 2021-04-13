@@ -233,7 +233,7 @@ network = Network([784, 30, 10])
 # network.momentum_type = 'regular'
 # network.decay = 'adagrad'
 """main"""
-network.SGD((x_train, y_train), epochs=10, mini_batch_size=100, eta=3.0, test_data=(x_test, y_test))
+network.SGD((x_train, y_train), epochs=1, mini_batch_size=100, eta=3.0, test_data=(x_test, y_test))
 
 # Epoch: 0, Accuracy: 0.5713
 # Epoch: 1, Accuracy: 0.6972
