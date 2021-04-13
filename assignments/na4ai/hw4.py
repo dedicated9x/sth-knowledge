@@ -157,6 +157,37 @@ def relu(x):
 # bp.check()
 
 
+"""LAST """
+x = Node('x', None, [], type_='input')
+w = Node('w', None, [], type_='input')
+b = Node('b', None, [], type_='input')
+v1 = Node('v1', lambda x, w: (x.T @ w)[0][0], [x, w])
+v2 = Node('v2', lambda v1, b: v1 + b, [v1, b])
+v3 = Node('v3', lambda v2: sigmoid(v2), [v2], type_='output')
+
+bp = Backprop([x, w, v1, v2, v3], lambda x, w, b: 1)
+
+np.random.seed(0)
+x.value = np.random.normal(size=(1000, 1))
+w.value = np.random.normal(size=(1000, 1))
+b.value = np.random.normal()
+
+bp.forward()
+
+# HARDCODED Backward step.
+v2.grad = sigmoid(v2.value) * (1 - sigmoid(v2.value)) * v3.grad
+b.grad = 1 * v2.grad
+v1.grad = 1 * v2.grad
+x.grad = w.value.T * v1.grad
+w.grad = x.value.T * v1.grad
+
+
+def direct_func(x, w, b):
+    return sigmoid(x.T @ w + b)
+
+# bp.backward()
+# bp.check()
+
 
 
 
