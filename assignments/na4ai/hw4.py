@@ -1,9 +1,4 @@
-def func(x, y):
-    return x + y
 
-f = lambda x, y: x + y
-
-import numpy as np
 
 
 # TODO type="input", type="output"
@@ -20,27 +15,48 @@ v3.calculate_value()
 v4.calculate_value()
 """
 
+import numpy as np
+
+def partial_derivate(base_func, var_name):
+    h = 0.0001
+    def wrapper(*args, **params):
+        alt_params = params.copy()
+        alt_params[var_name] += h
+        return (base_func(*args, **alt_params) - base_func(*args, **params)) / h
+    return wrapper
+
+
+# g = partial_derivate(lambda v1, v2: 10 * v1 + v2, 'v1')
+# g(v1=2, v2=3)
+
 
 class Node:
     def __init__(self, id, func, children):
         self.id = id
         self.func = func
         self.children = children
+        for ch in children:
+            ch.parents.append(self)
         self.parents = []
         self.value = None
         self.grad = None
 
     def __repr__(self):
-        return f'{self.value} || {self.grad}'
+        return f'{self.id} - ({self.value}, {self.grad})'
+
+    def children_dict(self):
+        return {e.id: e.value for e in self.children}
 
     def calculate_value(self):
-        self.value = self.func(**{e.id: e.value for e in self.children})
+        self.value = self.func(**self.children_dict())
 
+    def calculate_grad(self):
+        self.grad = sum([p.grad * partial_derivate(p.func, self.id)(**p.children_dict()) for p in self.parents])
 
 x = Node('x', None, [])
 y = Node('y', None, [])
 z = Node('z', None, [])
-v1 = Node('v1', lambda x, y, z: x * y - z, [x, y, z])
+v1 = Node('v1', lambda x, y, z: x * y + z, [x, y, z])
 v2 = Node('v2', lambda x, y, z: x - y * z, [x, y, z])
 v3 = Node('v3', lambda v1: v1 ** 2, [v1])
 v4 = Node('v4', lambda v2: np.exp(v2), [v2])
@@ -55,4 +71,28 @@ v2.calculate_value()
 v3.calculate_value()
 v4.calculate_value()
 v5.calculate_value()
+
+
+v5.grad = 1
+
+
+v4.calculate_grad()
+v3.calculate_grad()
+v2.calculate_grad()
+v1.calculate_grad()
+x.calculate_grad()
+y.calculate_grad()
+z.calculate_grad()
+
+
+# TODO direct grad
+
+# self = z
+
+# v1.grad = 4.
+# v2.grad = np.e
+# x.calculate_grad()
+
+# self = x
+# sum([p.grad * partial_derivate(p.func, self.id)(**p.children_dict()) for p in self.parents])
 
