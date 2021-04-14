@@ -12,6 +12,7 @@ v4.calculate_value()
 """
 
 import numpy as np
+import copy
 
 def partial_derivate(base_func, var_name):
     h = 0.0001
@@ -42,7 +43,8 @@ class Node:
         self.type_ = type_
 
     def __repr__(self):
-        return f'{self.id} - ({self.value}, {self.grad})'
+        # return f'{self.id} - ({self.value}, {self.grad})'
+        return '{:3s} value: {:5.3f}    grad: {:5.3f}'.format(self.id, self.value, self.grad)
 
     def children_dict(self):
         return {e.id: e.value for e in self.children}
@@ -58,6 +60,10 @@ class Backprop:
     def __init__(self, system, direct_func):
         self.system = system
         self.direct_func = direct_func
+
+    def __repr__(self):
+        return '\n'.join([e.__repr__() for e in self.system])
+
 
     def forward(self):
         _ = [node.calculate_value() for node in self.system if node.type_ != 'input']
@@ -137,57 +143,68 @@ def relu(x):
 
 
 """GRAPH 4 """
-# x = Node('x', None, [], type_='input')
-# y = Node('y', None, [], type_='input')
-# v1 = Node('v1', lambda x, y: 2 * x + y, [x, y])
-# v2 = Node('v2', lambda x, y: x - 2 * y, [x, y])
-# v3 = Node('v3', lambda v1: relu(v1), [v1])
-# v4 = Node('v4', lambda v2: relu(v2), [v2])
-# v5 = Node('v5', lambda v3, v4: v3 - v4, [v3, v4])
-# v6 = Node('v6', lambda v3, v4: v3 + v4, [v3, v4])
-# v7 = Node('v7', lambda v5: relu(v5), [v5])
-# v8 = Node('v8', lambda v6: relu(v6), [v6])
-# v9 = Node('v9', lambda v7, v8: v7 + v8, [v7, v8], type_='output')
-#
-# bp = Backprop([x, y, v1, v2, v3, v4, v5, v6, v7, v8, v9], lambda x, y: relu(relu(2 * x + y) - relu(x - 2 * y)) + relu(relu(2 * x + y) + relu(x - 2 * y)))
-#
-# x.value, y.value = 1., 1.
-# bp.forward()
-# bp.backward()
-# bp.check()
+x = Node('x', None, [], type_='input')
+y = Node('y', None, [], type_='input')
+v1 = Node('v1', lambda x, y: 2 * x + y, [x, y])
+v2 = Node('v2', lambda x, y: x - 2 * y, [x, y])
+v3 = Node('v3', lambda v1: relu(v1), [v1])
+v4 = Node('v4', lambda v2: relu(v2), [v2])
+v5 = Node('v5', lambda v3, v4: v3 - v4, [v3, v4])
+v6 = Node('v6', lambda v3, v4: v3 + v4, [v3, v4])
+v7 = Node('v7', lambda v5: relu(v5), [v5])
+v8 = Node('v8', lambda v6: relu(v6), [v6])
+v9 = Node('v9', lambda v7, v8: v7 + v8, [v7, v8], type_='output')
 
+bp = Backprop([x, y, v1, v2, v3, v4, v5, v6, v7, v8, v9], lambda x, y: relu(relu(2 * x + y) - relu(x - 2 * y)) + relu(relu(2 * x + y) + relu(x - 2 * y)))
+
+x.value, y.value = 1., 1.
+bp.forward()
+bp.backward()
+bp.check()
+
+
+self = x
+f'{self.id} - ({self.value}, {self.grad})'
 
 """LAST """
-x = Node('x', None, [], type_='input')
-w = Node('w', None, [], type_='input')
-b = Node('b', None, [], type_='input')
-v1 = Node('v1', lambda x, w: (x.T @ w)[0][0], [x, w])
-v2 = Node('v2', lambda v1, b: v1 + b, [v1, b])
-v3 = Node('v3', lambda v2: sigmoid(v2), [v2], type_='output')
-
-bp = Backprop([x, w, v1, v2, v3], lambda x, w, b: 1)
-
-np.random.seed(0)
-x.value = np.random.normal(size=(1000, 1))
-w.value = np.random.normal(size=(1000, 1))
-b.value = np.random.normal()
-
-bp.forward()
-
-# HARDCODED Backward step.
-v2.grad = sigmoid(v2.value) * (1 - sigmoid(v2.value)) * v3.grad
-b.grad = 1 * v2.grad
-v1.grad = 1 * v2.grad
-x.grad = w.value.T * v1.grad
-w.grad = x.value.T * v1.grad
-
-
-def direct_func(x, w, b):
-    return sigmoid(x.T @ w + b)
-
-# bp.backward()
-# bp.check()
-
-
+# x = Node('x', None, [], type_='input')
+# w = Node('w', None, [], type_='input')
+# b = Node('b', None, [], type_='input')
+# v1 = Node('v1', lambda x, w: (x.T @ w)[0][0], [x, w])
+# v2 = Node('v2', lambda v1, b: v1 + b, [v1, b])
+# v3 = Node('v3', lambda v2: sigmoid(v2), [v2], type_='output')
+#
+# bp = Backprop([x, w, v1, v2, v3], lambda x, w, b: 1)
+#
+# np.random.seed(0)
+# x.value = np.random.normal(size=(1000, 1))
+# w.value = np.random.normal(size=(1000, 1))
+# b.value = np.random.normal()
+#
+# bp.forward()
+#
+# # HARDCODED Backward step.
+# v2.grad = sigmoid(v2.value) * (1 - sigmoid(v2.value)) * v3.grad
+# b.grad = 1 * v2.grad
+# v1.grad = 1 * v2.grad
+# x.grad = w.value.T * v1.grad
+# w.grad = x.value.T * v1.grad
+#
+#
+# def direct_func(x, w, b):
+#     return sigmoid((x.T @ w)[0][0] + b)
+#
+# h = 0.00001
+# def shift(arr, idx):
+#     arr1 = copy.deepcopy(arr)
+#     arr1[idx] += h
+#     return arr1
+#
+# direct_grad_x = [(direct_func(shift(x.value, idx), w.value, b.value) - direct_func(x.value, w.value, b.value)) / h for idx in range(1000)]
+# direct_grad_w = [(direct_func(x.value, shift(w.value, idx), b.value) - direct_func(x.value, w.value, b.value)) / h for idx in range(1000)]
+# direct_grad_b = (direct_func(x.value, w.value, b.value + h) - direct_func(x.value, w.value, b.value)) / h
+#
+# """wychodzi gites"""
+# (np.array(direct_grad_x)[:, np.newaxis] / x.grad.T).mean()
 
 
