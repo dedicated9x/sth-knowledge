@@ -150,7 +150,7 @@ class Network(object):
 (x_train, y_train), (x_test, y_test) = load_mnist(rf"C:\Datasets")
 np.random.seed(0)
 network = Network([784, 30, 10])
-network.SGD((x_train, y_train), epochs=500, mini_batch_size=100, eta=3.0, test_data=(x_test, y_test))
+network.SGD((x_train, y_train), epochs=100, mini_batch_size=100, eta=3.0, test_data=(x_test, y_test))
 
 # Epoch: 0, Accuracy: 0.4581
 # Epoch: 1, Accuracy: 0.7381

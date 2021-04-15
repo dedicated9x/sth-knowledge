@@ -247,10 +247,11 @@ network.SGD((x_train, y_train), epochs=1, mini_batch_size=100, eta=3.0, test_dat
 # Epoch: 9, Accuracy: 0.9185
 
 """
-vanilla                             0.94/32
-L2 0.01                             0.94/10     0.95/27 
-Momentum 0.5                        0.94/16     
-Adagrad                 0.93/49
-10k rotated 20deg                   0.94/36
+vanilla                                         0.94/32
+L2 0.01                                         0.94/10     0.95/27 
+Momentum 0.5                                    0.94/16     
+Adagrad                             0.93/49
+10k rotated 20deg                               0.94/36
+dropout                  0.92/100+
 """
 
