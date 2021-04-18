@@ -4,9 +4,10 @@
  |_____ __|__ ______|    |
 ###################################################"""
 ''' enumerate zamiast range()'''
-# alist = ['her', 'name', 'is', 'rio']
-# for index, value in enumerate(alist):
-#     print(index, value)
+list_ = ['one', 'two', 'three']
+_ = [f'{e} = {idx}' for idx, e in enumerate(list_)]
+
+# TODO znaleźć lepszy przykład na enumerate
 
 ''' Slicing'''
 # pyString = 'Python'
