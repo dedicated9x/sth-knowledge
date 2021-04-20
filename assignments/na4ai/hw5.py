@@ -18,9 +18,22 @@ W2 = np.array([
 H1 = W1 @ X
 H2 = W2 @ H1
 
-lenghts = [h.shape[0] for h in [H1, H2]]
+dH2dW2 = [row[:, np.newaxis] @ H1.T for row in np.identity(H2.shape[0])]
+dH1dW1 = [row[:, np.newaxis] @ X.T for row in np.identity(H1.shape[0])]
+dH2dW1 = [sum([val * arr for val, arr in zip(row, dH1dW1)]) for row in W2]
 
-dH2dW2 = [row[:, np.newaxis] @ H1.T for row in np.identity(lenghts[1])]
-dH1dW1 = [row[:, np.newaxis] @ X.T for row in np.identity(lenghts[1])]
+# TODO te testowe przyblizaenie
 
-# TODO te kurewskie przemnożenie
+
+
+
+
+
+
+
+
+
+"""test"""
+# temp = [row for row in W2]
+# row = temp[0]
+# [val * arr for val, arr in zip(row, dH1dW1)]
