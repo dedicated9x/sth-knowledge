@@ -1,21 +1,31 @@
 import numpy as np
 import copy
 
+
+p_X = rf"C:\Users\devoted\Downloads\assignment7_X.npy"
+p_W1 = rf"C:\Users\devoted\Downloads\assignment7_W1.npy"
+p_W2 = rf"C:\Users\devoted\Downloads\assignment7_W2.npy"
+
+X = np.load(p_X)[:, np.newaxis]
+W1 = np.load(p_W1).astype(float)
+W2 = np.load(p_W2)
+
+
+# X = np.array([1., 1., 1.])[:, np.newaxis]
+#
+# W1 = np.array([
+#     [1., 2., 3.],
+#     [4., 5., 6.],
+#     [7., 8., 9.]
+# ])
+# W2 = np.array([
+#     [1., 1., 0.],
+#     [0., 1., 1.],
+#     [1., 0., 1.]
+# ])
+
 def f(w2, w1, x):
     return w2 @ w1 @ x
-
-X = np.array([1., 1., 1.])[:, np.newaxis]
-
-W1 = np.array([
-    [1., 2., 3.],
-    [4., 5., 6.],
-    [7., 8., 9.]
-])
-W2 = np.array([
-    [1., 1., 0.],
-    [0., 1., 1.],
-    [1., 0., 1.]
-])
 
 H1 = W1 @ X
 H2 = W2 @ H1
@@ -25,15 +35,15 @@ dH1dW1 = [row[:, np.newaxis] @ X.T for row in np.identity(H1.shape[0])]
 dH2dW1 = [sum([val * arr for val, arr in zip(row, dH1dW1)]) for row in W2]
 
 
-# TODO zrob absa
-# TODO refactor, by bylo dla drugiej wagi
+print(dH2dW1[0])
+print(dH2dW2[0])
 
 
-def direct_tensor(param_name, W, H):
-    res = np.zeros((H.shape[0], *W.shape))
+def direct_tensor(param_name, W):
+    res = np.zeros((H2.shape[0], *W.shape))
     for (i, j), _ in np.ndenumerate(W):
         h = 1e-4
-        W_h = copy.deepcopy(W1)
+        W_h = copy.deepcopy(W)
         W_h[i, j] += h
 
         kwargs = {'w1': W1, 'w2': W2, 'x': X}
@@ -45,10 +55,14 @@ def direct_tensor(param_name, W, H):
     return res
 
 
-dH2dW1_direct = direct_tensor('w1', W1, H1)
-# dH2dW2_direct = direct_tensor('w2', W2, H2)
-res1 = np.max(np.abs(np.array(dH2dW1) - dH2dW1_direct))
-print(res1)
+# TODO wczytaj prawdziwe dane
+
+dH2dW1_direct = direct_tensor('w1', W1)
+dH2dW2_direct = direct_tensor('w2', W2)
+diff1 = np.max(np.abs(np.array(dH2dW1) - dH2dW1_direct))
+diff2 = np.max(np.abs(np.array(dH2dW2) - dH2dW2_direct))
+print(diff1)
+print(diff2)
 
 
 
