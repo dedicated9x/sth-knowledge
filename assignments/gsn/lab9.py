@@ -42,7 +42,7 @@ it here to get resuts quickly.
 To get more meaningful experience with training convnets use the CIFAR dataset.
 '''
 
-
+# TODO
 def truncated_normal_(tensor, mean=0, std=1):
     size = tensor.shape
     tmp = tensor.new_empty(size + (4,)).normal_()
@@ -51,21 +51,27 @@ def truncated_normal_(tensor, mean=0, std=1):
     tensor.data.copy_(tmp.gather(-1, ind).squeeze(-1))
     tensor.data.mul_(std).add_(mean)
 
-
+# TODO dlaczego są 2 nn.Module
 class Linear(torch.nn.Module):
     def __init__(self, in_features, out_features):
         super(Linear, self).__init__()
+        # TODO czym sa in/out features (sprawdzic, czy sa gdzie uzywane). ALbo pozmieniac nazwy
         self.in_features = in_features
         self.out_features = out_features
+        # TODO co to weight (i ten parameter)
         self.weight = Parameter(torch.Tensor(out_features, in_features))
         self.bias = Parameter(torch.Tensor(out_features))
         self.reset_parameters()
 
+    # TODO (czy nadpisujemy?)
     def reset_parameters(self):
         truncated_normal_(self.weight, std=0.5)
         init.zeros_(self.bias)
 
+    # TODO <dlaczego są 2 nn.Module>
     def forward(self, x):
+        # TODO gdzie  wchodzi x (ktory wiemy, ze jest tensorem)
+        # TODO co tobi .t()
         r = x.matmul(self.weight.t())
         r += self.bias
         return r
@@ -74,12 +80,18 @@ class Linear(torch.nn.Module):
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
+        """
+        Linear to sieć/warstwa zaimplementowa powyżej.
+        Ad. 'sieć/warstwa' w ogólności sieci i warstwy mają taki sam interfejs (input + output). Stąd zapewne implementacja, w której dziedziczymy z tej samej klasy.
+        """
         self.fc1 = Linear(784, 64)
         self.fc2 = Linear(64, 64)
         self.fc3 = Linear(64, 10)
 
     def forward(self, x):
+        """.view() to .reshape() dla tensorów"""
         x = x.view(-1, 28 * 28)
+        """nn.Model.__call__() odpala .forward()"""
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -108,36 +120,49 @@ class MnistTrainer(object):
         self.testloader = torch.utils.data.DataLoader(
             self.testset, batch_size=1, shuffle=False, num_workers=4)
 
+    # TODO
     def train(self):
+        """net -> to prostu nasza sieć (nn.Model)"""
         net = Net()
-
+        """criterion -> zwykła funkcja, której użyjemy później"""
         criterion = nn.CrossEntropyLoss()
+        """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
         optimizer = optim.SGD(net.parameters(), lr=0.05, momentum=0.9)
 
+        # TODO znaleźć, co jest tym "x"-em
         for epoch in range(20):
             running_loss = 0.0
             for i, data in enumerate(self.trainloader, 0):
                 inputs, labels = data
+                """ustawia początkowy gradient na zero (chyba szczegół implementacyjny"""
                 optimizer.zero_grad()
 
+                """nn.Model.__call__() odpala .forward()"""
                 outputs = net(inputs)
                 loss = criterion(outputs, labels)
+                """loss to torch.Tenser. Stąd (kozacka) metoda .backward()"""
                 loss.backward()
+                """tensor liczy TYLKO 'grad'.  A przecież nam zależy na minimum (w końcu SDG)"""
                 optimizer.step()
 
+                """loss w tym momencie to Tensor(1,1,1). Tensory tej kategorii mają metodę .item(), która zwraca ich wartość."""
+                """+= -> bo robimy <stochastic> GD (średnie, sumy, itd.)"""
                 running_loss += loss.item()
+                """w innych interwałach pokazujemy <loss>, a w innych <accuracy> (te drugie jest dalej) """
                 if i % 100 == 99:
                     print('[%d, %5d] loss: %.3f' %
                           (epoch + 1, i + 1, running_loss / 100))
                     running_loss = 0.0
             correct = 0
             total = 0
+            """torch.no_grad() -> cntxmngr, który zapewnia, że nic nie odpali .backward() (takie zabezpieczenie)"""
             with torch.no_grad():
                 for data in self.testloader:
                     images, labels = data
                     outputs = net(images)
                     _, predicted = torch.max(outputs.data, 1)
                     total += labels.size(0)
+                    """do 'correct' dodajemy 0 lub 1, jednak jest to zapisany w nieintuicyjny sposób [sum() == WTF]"""
                     correct += (predicted == labels).sum().item()
 
             print('Accuracy of the network on the {} test images: {} %'.format(
