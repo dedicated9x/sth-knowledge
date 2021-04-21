@@ -42,7 +42,7 @@ it here to get resuts quickly.
 To get more meaningful experience with training convnets use the CIFAR dataset.
 '''
 
-# TODO
+"""to po prostu inicjalizuje wagi z rokładu normalnego (jakiegoś truncated)"""
 def truncated_normal_(tensor, mean=0, std=1):
     size = tensor.shape
     tmp = tensor.new_empty(size + (4,)).normal_()
@@ -51,27 +51,26 @@ def truncated_normal_(tensor, mean=0, std=1):
     tensor.data.copy_(tmp.gather(-1, ind).squeeze(-1))
     tensor.data.mul_(std).add_(mean)
 
-# TODO dlaczego są 2 nn.Module
+"""'Linear', bo przecież, jak dane przechodzą przez sieć, to jest to zwykłe przekształcenie liniowe"""
 class Linear(torch.nn.Module):
+    """in_features, out_features -> <liczba> neuronów przed, <liczba> neuronów po tej warstwie."""
     def __init__(self, in_features, out_features):
         super(Linear, self).__init__()
-        # TODO czym sa in/out features (sprawdzic, czy sa gdzie uzywane). ALbo pozmieniac nazwy
-        self.in_features = in_features
-        self.out_features = out_features
-        # TODO co to weight (i ten parameter)
+        # self.in_features = in_features
+        # self.out_features = out_features
+        """'Parameter' to 'Tensor', który zauważa, że jest atrybutem dla 'Module' i wpisuje się mu w odpowiednie miejsca przy inicjalizacji."""
         self.weight = Parameter(torch.Tensor(out_features, in_features))
         self.bias = Parameter(torch.Tensor(out_features))
         self.reset_parameters()
 
-    # TODO (czy nadpisujemy?)
+    """User-defined funckją używana <tylko> przy inicjalizacji warstwy (do zainicjalizowania wartości wag)."""
     def reset_parameters(self):
         truncated_normal_(self.weight, std=0.5)
         init.zeros_(self.bias)
 
-    # TODO <dlaczego są 2 nn.Module>
+    """x -> inputy (wchodzą w petli SGD)"""
     def forward(self, x):
-        # TODO gdzie  wchodzi x (ktory wiemy, ze jest tensorem)
-        # TODO co tobi .t()
+        """.t() => wyciąga z obiektu Parameter, jego obiekt bazowy Tensor (obliczenia tego wymagają)"""
         r = x.matmul(self.weight.t())
         r += self.bias
         return r
@@ -88,6 +87,7 @@ class Net(nn.Module):
         self.fc2 = Linear(64, 64)
         self.fc3 = Linear(64, 10)
 
+    """x -> inputy (wchodzą w petli SGD)"""
     def forward(self, x):
         """.view() to .reshape() dla tensorów"""
         x = x.view(-1, 28 * 28)
@@ -120,7 +120,6 @@ class MnistTrainer(object):
         self.testloader = torch.utils.data.DataLoader(
             self.testset, batch_size=1, shuffle=False, num_workers=4)
 
-    # TODO
     def train(self):
         """net -> to prostu nasza sieć (nn.Model)"""
         net = Net()
@@ -129,7 +128,6 @@ class MnistTrainer(object):
         """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
         optimizer = optim.SGD(net.parameters(), lr=0.05, momentum=0.9)
 
-        # TODO znaleźć, co jest tym "x"-em
         for epoch in range(20):
             running_loss = 0.0
             for i, data in enumerate(self.trainloader, 0):
