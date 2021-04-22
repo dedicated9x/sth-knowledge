@@ -12,11 +12,11 @@ print(m1$sigma2)
 print(m2$sigma2)
 acf(m1$residuals)
 
-conclusion <- "ARIMA(0,1,1) have substantially lower sigma2 compared to
+conclusion1 <- "ARIMA(0,1,1) have substantially lower sigma2 compared to
 white noise. In addition, ACF of its residuals shows that they do not correlate.
 It proves Arima's validity.
 " 
-cat(conclusion)
+cat(conclusion1)
 
 
 fcast <- forecast(m1, h=4)
@@ -27,6 +27,10 @@ dates <-seq(as.Date("2009-01-1"), as.Date("2010-1-1"), by="months")[seq(1, 12, 3
 plot(dates, tail(quarterly_inflation, 4), ylim = c(0, 0.005), ylab='inflation rate', 
      xlab='2009', col='red', pch=15)
 
+conclusion2 <- " As we can see, forecasted values of inflation are constant and
+equal to approximately 0.45%
+" 
+cat(conclusion2)
 
 
 #CLEAR

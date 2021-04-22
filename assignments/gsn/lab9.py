@@ -65,6 +65,8 @@ class Linear(torch.nn.Module):
 
     """User-defined funckją używana <tylko> przy inicjalizacji warstwy (do zainicjalizowania wartości wag)."""
     def reset_parameters(self):
+        # init.kaiming_normal_(self.weight, mode='fan_in') # dobra inicjalizacja dla Relu (95->97) # ma znaczene przy wielu warstawch
+        # init.xavier_normal_(self.w) -> druga opcja
         truncated_normal_(self.weight, std=0.5)
         init.zeros_(self.bias)
 
@@ -87,13 +89,18 @@ class Net(nn.Module):
         self.fc2 = Linear(64, 64)
         self.fc3 = Linear(64, 10)
 
+        # self.dropout = nn.Dropout(0.25)
+
     """x -> inputy (wchodzą w petli SGD)"""
     def forward(self, x):
         """.view() to .reshape() dla tensorów"""
         x = x.view(-1, 28 * 28)
+        # x = self.dropout(x)
         """nn.Model.__call__() odpala .forward()"""
         x = F.relu(self.fc1(x))
+        # x = self.dropout(x)
         x = F.relu(self.fc2(x))
+        # x = self.dropout(x)
         x = self.fc3(x)
         return x
 
@@ -132,7 +139,7 @@ class MnistTrainer(object):
             running_loss = 0.0
             for i, data in enumerate(self.trainloader, 0):
                 inputs, labels = data
-                """ustawia początkowy gradient na zero (chyba szczegół implementacyjny"""
+                """pytorch z defaultu sumuje (!) dotychczasowe gradienty. Tym je resetujemy."""
                 optimizer.zero_grad()
 
                 """nn.Model.__call__() odpala .forward()"""
@@ -155,6 +162,12 @@ class MnistTrainer(object):
             total = 0
             """torch.no_grad() -> cntxmngr, który zapewnia, że nic nie odpali .backward() (takie zabezpieczenie)"""
             with torch.no_grad():
+                #WPISAC GDZIE INDZIEJ W KODZIE: torch.is_grad_enabled() # sprawdza, czy jestesmy w torch.no_grad
+
+
+                # net.eval() <- np. dla batch normalizacji
+                # Ta funkcja sprawia, że cała sieć przechodzi w tryb ewaluacji (zamist teeningowe)
+                # np. wyłączy dropouta.
                 for data in self.testloader:
                     images, labels = data
                     outputs = net(images)
@@ -162,6 +175,7 @@ class MnistTrainer(object):
                     total += labels.size(0)
                     """do 'correct' dodajemy 0 lub 1, jednak jest to zapisany w nieintuicyjny sposób [sum() == WTF]"""
                     correct += (predicted == labels).sum().item()
+                # net.train() -> wracamy do trybu treningowego
 
             print('Accuracy of the network on the {} test images: {} %'.format(
                 total, 100 * correct / total))
@@ -171,6 +185,11 @@ def main():
     trainer = MnistTrainer()
     trainer.train()
 
+# TODO sprawdzic, czy jest 95%
+# TODO zrobic kopie
+# TODO ustawic seeda i zrobic zapis
+
+# TODO wczytaj, jak dataset, a nie jak mnista
 
 if __name__ == '__main__':
     main()

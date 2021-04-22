@@ -1,5 +1,6 @@
-library(nlme)
 library(forecast)
+library(nlme)
+
 www<-"https://www.mimuw.edu.pl/~noble/courses/TimeSeries/data/sp5may.dat"
 Z <- read.table(www,header=T)
 
@@ -15,8 +16,8 @@ lm1  <- lm(y~-1+x)
 summary(lm1)
 cat("Beta1 is equal to ", lm1$coefficients['x'])
 
-res = lm1$residuals
 
+res = lm1$residuals
 m1 <- res
 m2 <- auto.arima(res, max.d=0)
 m3 <- auto.arima(res, max.d=0, max.q=0)
@@ -31,7 +32,7 @@ acf(m2$residuals)
 acf(m3$residuals)
 par(mfrow=c(1,1))
 
-conclusion1 <- "White noise is not a good model for residuals.
+conclusion1 <- "White noise is not a good model for the residuals.
 ARMA(1,1) gives better model than white-noise.
 Restriction to AR does not give a improvement."
 cat(conclusion1)
