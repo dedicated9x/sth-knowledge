@@ -95,17 +95,15 @@ class MnistTrainer(object):
         self.no_epoch = no_epoch
         transform = transforms.Compose(
                 [transforms.ToTensor()])
-        self.trainset = torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=True, transform=transform)
-        # self.trainset = MnistTrainDataset(rf"C:\Datasets\mnist_train")
-        self.trainloader = torch.utils.data.DataLoader(
-            self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=4)
+        # self.trainset = torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=True, transform=transform)
+        # self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=4)
+        self.trainset = MnistTrainDataset(rf"C:\Datasets\mnist_train")
+        self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=0)
 
-        self.testset = torchvision.datasets.MNIST(
-            root=rf"C:\Datasets",
-            train=False,
-            download=True, transform=transform)
-        self.testloader = torch.utils.data.DataLoader(
-            self.testset, batch_size=1, shuffle=False, num_workers=4)
+        # self.testset = torchvision.datasets.MNIST(root=rf"C:\Datasets", train=False, download=True, transform=transform)
+        # self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=4)
+        self.testset = MnistTrainDataset(rf"C:\Datasets\mnist_test")
+        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=0)
 
     def train(self):
         """net -> to prostu nasza sieć (nn.Model)"""
@@ -159,7 +157,7 @@ def main():
     # Linear.generator = torch.Generator().manual_seed(1234567890)
     torch.manual_seed(0)
     net_base = Net()
-    trainer = MnistTrainer(net=net_base, no_epoch=1)
+    trainer = MnistTrainer(net=net_base, no_epoch=2)
     trainer.train()
 
 """
@@ -183,10 +181,9 @@ if __name__ == '__main__':
 
 
 """SCRATCH"""
+# TODO spakowac to do jednego
 
-# self = MnistTrainDataset(rf"C:\Datasets\mnist_train")
-
-
+"""porownanie datasetow"""
 # transform = transforms.Compose([transforms.ToTensor()])
 # ts0 = torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=True, transform=transform)
 # ts1 = MnistTrainDataset(rf"C:\Datasets\mnist_train")
@@ -195,12 +192,6 @@ if __name__ == '__main__':
 # z0 = tup0[0].numpy()[0, :, :]
 # z1 = tup1[0].numpy()[0, :, :]
 
-
-# TODO poprawic annotacje dla
-# TODO zrobic druga wersje dla testowego
-# TODO spakowac to do jednego
-
-
 """csv train"""
 # trainer = MnistTrainer(net=Net(), no_epoch=1)
 # ser_names = [e.name for e in pl.Path(rf"C:\Datasets\mnist_bad").glob('**/*')]
@@ -208,7 +199,14 @@ if __name__ == '__main__':
 # df = pd.DataFrame().assign(name=ser_names, label=ser_labels)
 # df.to_csv(rf"C:\temp\gsn_assig_1_output\label.csv", index=False)
 
-"""60000 zapis"""
+"""csv test"""
+# trainer = MnistTrainer(net=Net(), no_epoch=1)
+# ser_names = [e.name for e in pl.Path(rf"C:\Datasets\mnist_test\data").glob('**/*')]
+# ser_labels = trainer.testset.test_labels.numpy()
+# df = pd.DataFrame().assign(name=ser_names, label=ser_labels)
+# df.to_csv(rf"C:\temp\gsn_assig_1_output\label.csv", index=False)
+
+"""images train"""
 # for i in range(60000):
 #     arr = trainer.trainset.train_data[i, :, :].numpy()
 #     # arr = simpler(arr)
@@ -217,6 +215,14 @@ if __name__ == '__main__':
 #
 #     print(i)
 
+"""images test"""
+# import cv2
+# path_root = pl.Path(rf"C:\temp\gsn_assig_1_output")
+# trainer = MnistTrainer(net=Net(), no_epoch=1)
+# for i in range(10000):
+#     arr = trainer.testset.train_data[i, :, :].numpy()
+#     filename = f'img_{str(i).zfill(5)}.png'
+#     cv2.imwrite(path_root.joinpath(filename).__str__(), arr)
 
 """MNIST vs GSN - testy"""
 # mnist_out = trainer.trainset.train_data[0, :, :].numpy()
