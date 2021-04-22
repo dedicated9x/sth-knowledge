@@ -68,17 +68,18 @@ MB_SIZE = 128
 class MnistTrainDataset(Dataset):
     def __init__(self, root, transform=None, target_transform=None):
         self.img_dir = pl.Path(root).joinpath('data')
-        self.img_labels = pd.read_csv(self.img_dir.joinpath('labels.csv'))
+        img_labels = pd.read_csv(self.img_dir.joinpath('labels.csv'))
+        self.images = [read_image(self.img_dir.joinpath(name).__str__()) / 255 for name in img_labels['name']]
+        self.labels = img_labels['label']
         self.transform = None
         self.target_transform = target_transform
 
     def __len__(self):
-        return len(self.img_labels)
+        return len(self.labels)
 
     def __getitem__(self, idx):
-        annot = self.img_labels.iloc[idx]
-        image = read_image(self.img_dir.joinpath(annot['name']).__str__()) / 255
-        label = annot['label']
+        image = self.images[idx]
+        label = self.labels[idx]
 
         if self.transform:
             image = self.transform(image)
@@ -88,19 +89,14 @@ class MnistTrainDataset(Dataset):
         return sample
 
 
-
 class MnistTrainer(object):
     def __init__(self, net, no_epoch=20):
         self.net = net
         self.no_epoch = no_epoch
         transform = transforms.Compose(
                 [transforms.ToTensor()])
-        # self.trainset = torchvision.datasets.MNIST(
-        #     root=rf"C:\Datasets",
-        #     download=True,
-        #     train=True,
-        #     transform=transform)
-        self.trainset = MnistTrainDataset(rf"C:\Datasets\mnist_train")
+        self.trainset = torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=True, transform=transform)
+        # self.trainset = MnistTrainDataset(rf"C:\Datasets\mnist_train")
         self.trainloader = torch.utils.data.DataLoader(
             self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=4)
 
@@ -180,11 +176,17 @@ Accuracy of the network on the 10000 test images: 91.72 %
 """
 
 
-
 if __name__ == '__main__':
     main()
 
+
+
+
 """SCRATCH"""
+
+# self = MnistTrainDataset(rf"C:\Datasets\mnist_train")
+
+
 # transform = transforms.Compose([transforms.ToTensor()])
 # ts0 = torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=True, transform=transform)
 # ts1 = MnistTrainDataset(rf"C:\Datasets\mnist_train")
@@ -194,12 +196,9 @@ if __name__ == '__main__':
 # z1 = tup1[0].numpy()[0, :, :]
 
 
-# TODO stworzyc taki dataset i porownac
-# TODO solucja -> https://pytorch.org/tutorials/beginner/basics/data_tutorial.html
-
-# TODO poczytac doksy od datasetu i loadera
-# TODO zerknac na slacka
-# TODO zobaczyc, jakie metody datasetu sa wolane ( w kodzie, ew. dodac dekorator)
+# TODO poprawic annotacje dla
+# TODO zrobic druga wersje dla testowego
+# TODO spakowac to do jednego
 
 
 """csv train"""
