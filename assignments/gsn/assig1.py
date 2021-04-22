@@ -66,11 +66,13 @@ MB_SIZE = 128
 
 
 class MnistTrainDataset(Dataset):
-    def __init__(self, root, transform=None, target_transform=None):
+    def __init__(self, root, transform=None, target_transform=None, slice_=None):
         self.img_dir = pl.Path(root).joinpath('data')
         img_labels = pd.read_csv(self.img_dir.joinpath('labels.csv'))
+        if slice_ is not None:
+            img_labels = img_labels[slice_]
         self.images = [read_image(self.img_dir.joinpath(name).__str__()) / 255 for name in img_labels['name']]
-        self.labels = img_labels['label']
+        self.labels = img_labels['label'].reset_index(drop=True)
         self.transform = None
         self.target_transform = target_transform
 
@@ -97,12 +99,12 @@ class MnistTrainer(object):
                 [transforms.ToTensor()])
         self.trainset = torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=True, transform=transform)
         self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=4)
-        # self.trainset = MnistTrainDataset(rf"C:\Datasets\mnist_train")
+        # self.trainset = MnistTrainDataset(rf"C:\Datasets\mnist_", slice_=slice(0, 60000))
         # self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=0)
-
+        #
         self.testset = torchvision.datasets.MNIST(root=rf"C:\Datasets", train=False, download=True, transform=transform)
         self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=4)
-        # self.testset = MnistTrainDataset(rf"C:\Datasets\mnist_test")
+        # self.testset = MnistTrainDataset(rf"C:\Datasets\mnist_", slice_=slice(60000, 70000))
         # self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=0)
 
     def train(self):
@@ -156,8 +158,8 @@ class MnistTrainer(object):
 def main():
     torch.manual_seed(0)
     net_base = Net()
-    # trainer = MnistTrainer(net=net_base, no_epoch=2)
-    # trainer.train()
+    trainer = MnistTrainer(net=net_base, no_epoch=2)
+    trainer.train()
 
 """
 [1,   100] loss: 2.304
@@ -180,20 +182,13 @@ if __name__ == '__main__':
 
 
 """SCRATCH"""
-# TODO zrenamowac testowe
-# TODO polaczyc csv-ki
-# TODO dodac range do constructora
 
-# TODO spakowac to do jednego
+
 
 """porownanie datasetow"""
-transform = transforms.Compose([transforms.ToTensor()])
-ts0 = torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=True, transform=transform)
-ts1 = MnistTrainDataset(rf"C:\Datasets\mnist_train")
-tup0 = ts0.__getitem__(2)
-tup1 = ts1.__getitem__(2)
-z0 = tup0[0].numpy()[0, :, :]
-z1 = tup1[0].numpy()[0, :, :]
+# ts1 = MnistTrainDataset(rf"C:\Datasets\mnist_train", slice_=slice(20, 30))
+# tup1 = ts1.__getitem__(2)
+# z1 = tup1[0].numpy()[0, :, :]
 
 
 """polaczenie dataframow"""
