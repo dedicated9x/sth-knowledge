@@ -9,25 +9,17 @@ import torchvision.transforms as transforms
 import sys
 
 
-def truncated_normal_(tensor, mean=0, std=1):
+def truncated_normal_(tensor, mean=0, std=1, generator_=None):
     size = tensor.shape
-
-    # TODO
-    tmp = tensor.new_empty(size + (4,)).normal_()
-    # tmp = tensor.new_empty(size + (4,)).normal_(generator=torch.Generator().manual_seed(1234567890))
-
-    # print(tmp)
-    # sys.exit()
-    # torch.Generator().manual_seed(2147483647)
-    # torch.Generator().manual_seed(1234567890)
-
-
+    tmp = tensor.new_empty(size + (4,)).normal_(generator=generator_)
     valid = (tmp < 2) & (tmp > -2)
     ind = valid.max(-1, keepdim=True)[1]
     tensor.data.copy_(tmp.gather(-1, ind).squeeze(-1))
     tensor.data.mul_(std).add_(mean)
 
 class Linear(torch.nn.Module):
+    generator = None
+
     """in_features, out_features -> <liczba> neuronów przed, <liczba> neuronów po tej warstwie."""
     def __init__(self, in_features, out_features):
         super(Linear, self).__init__()
@@ -37,7 +29,7 @@ class Linear(torch.nn.Module):
 
 
     def reset_parameters(self):
-        truncated_normal_(self.weight, std=0.5)
+        truncated_normal_(self.weight, std=0.5, generator_=Linear.generator)
         init.zeros_(self.bias)
 
     """x -> inputy (wchodzą w petli SGD)"""
@@ -138,26 +130,23 @@ class MnistTrainer(object):
 
 
 def main():
+    Linear.generator = torch.Generator().manual_seed(1234567890)
     net_base = Net()
-    trainer = MnistTrainer(net=net_base, no_epoch=4)
+    trainer = MnistTrainer(net=net_base, no_epoch=1)
     trainer.train()
 
 
 """
-[1,   100] loss: 2.583
-[1,   200] loss: 0.628
-[1,   300] loss: 0.504
-[1,   400] loss: 0.433
-Accuracy of the network on the 10000 test images: 88.87 %
+[1,   100] loss: 2.033
+[1,   200] loss: 0.553
+[1,   300] loss: 0.427
+[1,   400] loss: 0.394
+Accuracy of the network on the 10000 test images: 90.56 %
 """
 
-# TODO wrzucamy to jako argument na starcie (moze wywalimy 'neta' od razu, by nie bylo przekazywania po 10 razy)
-# TODO sprawdzamy, czy w long-runie jest 95% (amy nie miec "pechowych wag"
-    # TODO weights - zacznijmy od tego
 
 # TODO teraz pewnie szuffle
-
-# TODO ustawic seeda i zrobic zapis
+    # TODO ustawic seeda i zrobic zapis
 
 # TODO wczytaj, jak dataset, a nie jak mnista
 
