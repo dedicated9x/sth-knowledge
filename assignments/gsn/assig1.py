@@ -6,6 +6,12 @@ from torch.nn.parameter import Parameter
 from torch.nn import init
 import torchvision
 import torchvision.transforms as transforms
+
+import pandas as pd
+import pathlib as pl
+from torch.utils.data import Dataset
+from torchvision.io import read_image
+
 import sys
 
 
@@ -59,17 +65,42 @@ class Net(nn.Module):
 MB_SIZE = 128
 
 
+class MnistTrainDataset(Dataset):
+    def __init__(self, root, transform=None, target_transform=None):
+        self.img_dir = pl.Path(root).joinpath('data')
+        self.img_labels = pd.read_csv(self.img_dir.joinpath('labels.csv'))
+        self.transform = None
+        self.target_transform = target_transform
+
+    def __len__(self):
+        return len(self.img_labels)
+
+    def __getitem__(self, idx):
+        annot = self.img_labels.iloc[idx]
+        image = read_image(self.img_dir.joinpath(annot['name']).__str__()) / 255
+        label = annot['label']
+
+        if self.transform:
+            image = self.transform(image)
+        if self.target_transform:
+            label = self.target_transform(label)
+        sample = (image, label)
+        return sample
+
+
+
 class MnistTrainer(object):
     def __init__(self, net, no_epoch=20):
         self.net = net
         self.no_epoch = no_epoch
         transform = transforms.Compose(
                 [transforms.ToTensor()])
-        self.trainset = torchvision.datasets.MNIST(
-            root=rf"C:\Datasets",
-            download=True,
-            train=True,
-            transform=transform)
+        # self.trainset = torchvision.datasets.MNIST(
+        #     root=rf"C:\Datasets",
+        #     download=True,
+        #     train=True,
+        #     transform=transform)
+        self.trainset = MnistTrainDataset(rf"C:\Datasets\mnist_train")
         self.trainloader = torch.utils.data.DataLoader(
             self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=4)
 
@@ -153,39 +184,15 @@ Accuracy of the network on the 10000 test images: 91.72 %
 if __name__ == '__main__':
     main()
 
-transform = transforms.Compose([transforms.ToTensor()])
-ts0 = torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=True, transform=transform)
+"""SCRATCH"""
+# transform = transforms.Compose([transforms.ToTensor()])
+# ts0 = torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=True, transform=transform)
+# ts1 = MnistTrainDataset(rf"C:\Datasets\mnist_train")
+# tup0 = ts0.__getitem__(2)
+# tup1 = ts1.__getitem__(2)
+# z0 = tup0[0].numpy()[0, :, :]
+# z1 = tup1[0].numpy()[0, :, :]
 
-import pandas as pd
-import pathlib as pl
-from torch.utils.data import Dataset
-from torchvision.io import read_image
-
-class CustomImageDataset(Dataset):
-    def __init__(self, root, transform=None, target_transform=None):
-        self.img_dir = pl.Path(root).joinpath('data')
-        self.img_labels = pd.read_csv(self.img_dir.joinpath('labels.csv'))
-        self.transform = transforms.Compose([transforms.ToTensor()])
-        self.target_transform = target_transform
-
-    def __len__(self):
-        return len(self.img_labels)
-
-    def __getitem__(self, idx):
-        # TODO
-        img_path = os.path.join(self.img_dir, self.img_labels.iloc[idx, 0])
-        image = read_image(img_path)
-        label = self.img_labels.iloc[idx, 1]
-        if self.transform:
-            image = self.transform(image)
-        if self.target_transform:
-            label = self.target_transform(label)
-        sample = {"image": image, "label": label}
-        return sample
-
-self = CustomImageDataset(rf"C:\Datasets\mnist_train")
-
-idx = 2
 
 # TODO stworzyc taki dataset i porownac
 # TODO solucja -> https://pytorch.org/tutorials/beginner/basics/data_tutorial.html
