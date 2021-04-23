@@ -113,6 +113,7 @@ class MnistTrainer(object):
         self.trainset, self.testset = datasets
         nw = lambda x: 0 if type(x) == ShapesDataset else 4
         self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=nw(self.trainset))
+        # self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=nw(self.testset))
         self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=nw(self.testset))
 
     def train(self):
@@ -159,15 +160,27 @@ class MnistTrainer(object):
                 for data in self.testloader:
                     images, labels = data
                     outputs = net(images)
+                    # TODO w sumie topk przydaloby sie znowu
                     # TODO zrobmy jednak na wiekszym size (niech bedzie == 2) na wszelki -> total += labels.size(0)
                     # TODO to trzeba bedzie ekstrahowac
 
-                    k = 1
-                    labels1 = F.one_hot(torch.topk(outputs, k).indices, 10).sum(dim=0)
-                    predicted = F.one_hot(labels, 10)
 
-                    total += 1
-                    correct += (predicted == labels1).all().int().item()
+                    k = 1
+                    predicted = F.one_hot(torch.topk(outputs, k).indices, 10).sum(dim=1)
+                    labels1 = F.one_hot(labels, 10)
+                    total += outputs.shape[0]
+                    correct += (predicted == labels1).all(dim=1).int().sum().item()
+
+                    """single case"""
+                    # k = 1
+                    # labels1 = F.one_hot(torch.topk(outputs, k).indices, 10).sum(dim=0)
+                    # predicted = F.one_hot(labels, 10)
+                    # total += 1
+                    # correct += (predicted == labels1).all().int().item()
+
+
+
+
 
                     """do 'correct' dodajemy 0 lub 1, jednak jest to zapisany w nieintuicyjny sposób [sum() == WTF]"""
                     # _, predicted = torch.max(outputs.data, 1)
