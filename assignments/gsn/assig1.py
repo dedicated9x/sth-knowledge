@@ -119,10 +119,12 @@ class MnistTrainer(object):
                 """nn.Model.__call__() odpala .forward()"""
                 outputs = net(inputs)
                 """label(1), output(10)"""
+                """labels.shape -> torch.Size([128]) // outputs.shape -> torch.Size([128, 10])"""
+                """criterion(outputs[0:1], labels[0:1])"""
                 loss = criterion(outputs, labels)
                 """loss to torch.Tenser. Stąd (kozacka) metoda .backward()"""
                 loss.backward()
-                """tensor liczy TYLKO 'grad'.  A przecież nam zależy na minimum (w końcu SDG)"""
+                """tensor (loss) liczy TYLKO 'grad'.  A przecież nam zależy na minimum (w końcu SDG)"""
                 optimizer.step()
 
                 """loss w tym momencie to Tensor(1,1,1). Tensory tej kategorii mają metodę .item(), która zwraca ich wartość."""
@@ -152,10 +154,10 @@ def main():
     torch.manual_seed(0)
     transform0 = transforms.Compose([transforms.ToTensor()])
 
+    # return
 
     trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0) for b in [True, False]]
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
-
     net_base = Net()
     trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=2)
     trainer.train()
@@ -181,88 +183,67 @@ if __name__ == '__main__':
 
 
 """SCRATCH"""
+# labels[0]
+# Out[5]: tensor(6)
+# labels[0].shape
+# Out[6]: torch.Size([])
+
+# outputs[0]
+# Out[7]:
+# tensor([47.0333, -8.8092, -31.7119, -15.8912, -14.0070, 58.2908, 15.3053,
+#         16.3086, 14.9250, 1.6518], grad_fn= < SelectBackward >)
+# outputs[0].shape
+# Out[8]: torch.Size([10])
+
+# TODO sprawdzic 2d NLL lossa
+# TODO zrobic customowy logloss ( z dwóch NLL-i)
+# TODO wlasciwa funckje jakims searchem po wszystkich mozliwych
+# TODO moze na slacku pisze, co to za funkcja
+
+criterion = nn.CrossEntropyLoss()
+# criterion = nn.NLLLoss()
+output = torch.Tensor([[47.0333, -8.8092, -31.7119, -15.8912, -14.0070, 58.2908, 15.3053, 16.3086, 14.9250, 1.6518]]) #torch.Size([1, 10])
+labels = torch.tensor([6], dtype=torch.long) # torch.Size([1])
+criterion(output, labels)
 
 
 
-"""porownanie datasetow"""
-# ts1 = MnistTrainDataset(rf"C:\Datasets\mnist_train", slice_=slice(20, 30))
-# tup1 = ts1.__getitem__(2)
-# z1 = tup1[0].numpy()[0, :, :]
+# TODO wymyśleć dane wejściowe i sprawdzić
+
+# 2D loss example (used, for example, with image inputs)
+N, C = 5, 4
+loss = nn.NLLLoss()
+# input is of size N x C x height x width
+data = torch.randn(N, 16, 10, 10)
+conv = nn.Conv2d(16, C, (3, 3))
+m = nn.LogSoftmax(dim=1)
+# each element in target has to have 0 <= value < C
+target = torch.empty(N, 8, 8, dtype=torch.long).random_(0, C) # torch.Size([5, 8, 8])
+input = m(conv(data)) # torch.Size([5, 4, 8, 8])
+output = loss(input, target)
+output.backward()
 
 
-"""polaczenie dataframow"""
-# f1 = lambda x: x[:4] + '6' +  x[5:]
-# df_train = pd.read_csv(rf"C:\Datasets\mnist_train\data\labels.csv")
-# df_test = pd.read_csv(rf"C:\Datasets\mnist_test\data\labels.csv")
-# df_test['name'] = df_test['name'].apply(f1)
-# combined = df_train.append(df_test, ignore_index=True)
-# combined.to_csv(rf"C:\temp\gsn_assig_1_output\labels.csv", index=False)
 
-"""zmiana nazw testowych"""
-# f1 = lambda x: x[:4] + '6' +  x[5:]
-# x = 'img_00002.png'
-# root = pl.Path(rf"C:\temp\src\data")
-# images = list(root.glob('**/*'))
-# [i.rename(i.with_name(f1(i.name))) for i in images]
 
-"""porownanie datasetow"""
-# transform = transforms.Compose([transforms.ToTensor()])
-# ts0 = torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=True, transform=transform)
-# ts1 = MnistTrainDataset(rf"C:\Datasets\mnist_train")
-# tup0 = ts0.__getitem__(2)
-# tup1 = ts1.__getitem__(2)
-# z0 = tup0[0].numpy()[0, :, :]
-# z1 = tup1[0].numpy()[0, :, :]
 
-"""csv train"""
-# trainer = MnistTrainer(net=Net(), no_epoch=1)
-# ser_names = [e.name for e in pl.Path(rf"C:\Datasets\mnist_bad").glob('**/*')]
-# ser_labels = trainer.trainset.test_labels.numpy()
-# df = pd.DataFrame().assign(name=ser_names, label=ser_labels)
-# df.to_csv(rf"C:\temp\gsn_assig_1_output\label.csv", index=False)
+# output = torch.Tensor([47.0333, -8.8092, -31.7119, -15.8912, -14.0070, 58.2908, 15.3053, 16.3086, 14.9250, 1.6518])
+# labels = torch.tensor(6)
+# output = torch.Tensor([[-1.3446,  1.7837, -0.2075, -0.0454, -0.8952]])
+# labels = torch.tensor([4], dtype=torch.long)
 
-"""csv test"""
-# trainer = MnistTrainer(net=Net(), no_epoch=1)
-# ser_names = [e.name for e in pl.Path(rf"C:\Datasets\mnist_test\data").glob('**/*')]
-# ser_labels = trainer.testset.test_labels.numpy()
-# df = pd.DataFrame().assign(name=ser_names, label=ser_labels)
-# df.to_csv(rf"C:\temp\gsn_assig_1_output\label.csv", index=False)
 
-"""images train"""
-# for i in range(60000):
-#     arr = trainer.trainset.train_data[i, :, :].numpy()
-#     # arr = simpler(arr)
-#     filename = f'img_{str(i).zfill(5)}.png'
-#     cv2.imwrite(path_root.joinpath(filename).__str__(), arr)
-#
-#     print(i)
+"""N i C"""
+#torch.Size([batch_size,    y_size  ])
+#torch.Size([N,             C       ])
 
-"""images test"""
-# import cv2
-# path_root = pl.Path(rf"C:\temp\gsn_assig_1_output")
-# trainer = MnistTrainer(net=Net(), no_epoch=1)
-# for i in range(10000):
-#     arr = trainer.testset.train_data[i, :, :].numpy()
-#     filename = f'img_{str(i).zfill(5)}.png'
-#     cv2.imwrite(path_root.joinpath(filename).__str__(), arr)
 
-"""MNIST vs GSN - testy"""
-# mnist_out = trainer.trainset.train_data[0, :, :].numpy()
-# mnist_out = np.vectorize(simpler)(mnist_out)
-# cv2.imwrite(path_root.joinpath('mnist.png').__str__(), mnist_out)
-#
-# ex_gsn = cv2.imread(path_root.joinpath('gsn.png').__str__()) # bit depth = 8
-# ex_mnist = cv2.imread(path_root.joinpath('mnist.png').__str__()) # bit depth = 32
-#
-# gsn0 = ex_gsn[:, :, 0]
-# gsn1 = ex_gsn[:, :, 1]
-# gsn2 = ex_gsn[:, :, 2]
-#
-# mnist0 = ex_mnist[:, :, 0]
-# mnist1 = ex_mnist[:, :, 1]
-# mnist2 = ex_mnist[:, :, 2]
-#
-# summary(gsn0)
-# summary(mnist0)
-# summary(mnist_out)
+"""INPUT, OUTPUT, TARGET, LABELS"""
+# criterion(output, labels)
+# loss(input, target)
 
+
+
+# TODO explode na labelach mnistow
+# TODO automatyczny size inputow
+# TODO wczytanie GSN-u.
