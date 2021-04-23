@@ -196,16 +196,18 @@ if __name__ == '__main__':
 # outputs[0].shape
 # Out[8]: torch.Size([10])
 
+# TODO co zrobic z zerem ???
+
+def multiindex_nll_loss(outputs, labels):
+    loss = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels))
+    return loss
 
 outputs = torch.Tensor([[0.05, 0.9, 0.3, 0.05, 0.05, 0.05], [0.01, 0.95, 0.05, 0.3, 0.05, 0.05]]) #torch.Size([2, 6])
 labels = torch.Tensor([[0, 1, 1, 0, 0, 0], [0, 1, 0, 1, 0, 0]]) #torch.Size([2, 6])
 
-
-
-
-
-
-
+# y = labels
+# y1 = outputs
+# -torch.sum(torch.log(y1) * y + torch.log(1 - y1) * (1 - y))
 
 
 # TODO zaklepac swoja funckej dla docelowych shapow
