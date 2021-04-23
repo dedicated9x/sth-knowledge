@@ -65,7 +65,7 @@ class Net(nn.Module):
 MB_SIZE = 128
 
 
-class MnistTrainDataset(Dataset):
+class ShapesDataset(Dataset):
     def __init__(self, root, transform=None, target_transform=None, slice_=None):
         self.img_dir = pl.Path(root).joinpath('data')
         img_labels = pd.read_csv(self.img_dir.joinpath('labels.csv'))
@@ -92,21 +92,13 @@ class MnistTrainDataset(Dataset):
 
 
 class MnistTrainer(object):
-    def __init__(self, net, no_epoch=20):
+    def __init__(self, net, datasets, no_epoch=20):
         self.net = net
         self.no_epoch = no_epoch
-        transform = transforms.Compose([transforms.ToTensor()])
-
-        # TODO wykestrachowac te datasety stad
-        self.trainset = torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=True, transform=transform)
-        self.testset = torchvision.datasets.MNIST(root=rf"C:\Datasets", train=False, download=True, transform=transform)
-        # self.trainset = MnistTrainDataset(rf"C:\Datasets\mnist_", slice_=slice(0, 60000))
-        # self.testset = MnistTrainDataset(rf"C:\Datasets\mnist_", slice_=slice(60000, 70000))
-
-        num_workers_train = 0 if type(self.trainset) == MnistTrainDataset else 4
-        num_workers_test = 0 if type(self.testset) == MnistTrainDataset else 4
-        self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=num_workers_train)
-        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=num_workers_test)
+        self.trainset, self.testset = datasets
+        nw = lambda x: 0 if type(x) == ShapesDataset else 4
+        self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=nw(self.trainset))
+        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=nw(self.testset))
 
     def train(self):
         """net -> to prostu nasza sieć (nn.Model)"""
@@ -158,8 +150,14 @@ class MnistTrainer(object):
 
 def main():
     torch.manual_seed(0)
+    transform0 = transforms.Compose([transforms.ToTensor()])
+
+
+    trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0) for b in [True, False]]
+    # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
+
     net_base = Net()
-    trainer = MnistTrainer(net=net_base, no_epoch=2)
+    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=2)
     trainer.train()
 
 """
