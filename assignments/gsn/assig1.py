@@ -59,7 +59,9 @@ class Net(nn.Module):
         """nn.Model.__call__() odpala .forward()"""
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = self.fc3(x)
+        # x = self.fc3(x)
+        # HERE
+        x = interiorize(torch.sigmoid(self.fc3(x)))
         return x
 
 
@@ -116,7 +118,8 @@ class MnistTrainer(object):
         # net = Net()
         net = self.net
         """criterion -> zwykła funkcja, której użyjemy później"""
-        criterion = nn.CrossEntropyLoss()
+        # criterion = nn.CrossEntropyLoss()
+        criterion = multiindex_nll_loss
         """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
         optimizer = optim.SGD(net.parameters(), lr=0.05, momentum=0.9)
 
@@ -129,37 +132,11 @@ class MnistTrainer(object):
 
                 """nn.Model.__call__() odpala .forward()"""
                 outputs = net(inputs)
-                """label(1), output(10)"""
                 """labels.shape -> torch.Size([128]) // outputs.shape -> torch.Size([128, 10])"""
                 """criterion(outputs[0:1], labels[0:1])"""
-                # loss = criterion(outputs, labels)
-
+                # HERE
                 labels1 = F.one_hot(labels, 10)  # torch.Size([2, 10])
-                # outputs1 = 0.9999 * torch.sigmoid(outputs)
-                outputs1 = interiorize(torch.sigmoid(outputs))
-                loss = multiindex_nll_loss(outputs1, labels1)
-                #
-                # labels = labels1
-                # outputs = outputs1
-                #
-                # z1 = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
-                # z1[65]
-                #
-                # outputs = outputs[65:66]
-                # labels = labels[65:66]
-                #
-                # z2 = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
-                # z2
-                #
-                #
-                # if i == 389:
-                #     a = 2
-
-                # 0.24291181564331055
-                # 0.21021124720573425
-                # 0.2863709628582001
-                # if 0.28637096 < loss.item() <0.28637097:
-                #     a = 2
+                loss = criterion(outputs, labels1)
 
                 """loss to torch.Tenser. Stąd (kozacka) metoda .backward()"""
                 loss.backward()
@@ -172,8 +149,6 @@ class MnistTrainer(object):
                 if i % 100 == 99:
                     print('[%d, %5d] loss: %.3f' %
                           (epoch + 1, i + 1, running_loss / 100))
-                    # print(running_loss)
-                    # sys.exit()
                     running_loss = 0.0
             correct = 0
             total = 0
@@ -201,7 +176,7 @@ def main():
     trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0) for b in [True, False]]
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
     net_base = Net()
-    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=20)
+    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=2)
     trainer.train()
 
 """
@@ -232,7 +207,6 @@ multiindex_nll_loss(outputs1, labels1)
 outputs = outputs1
 labels = labels1
 
-# TODO sigmoidy na ostatnia warste
 # TODO one_hot na target_transform + GSNDataset
 
 # TODO Trening
