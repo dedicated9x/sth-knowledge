@@ -100,6 +100,11 @@ def interiorize(tensor_):
     eps = 1e-4
     return (1 - 2 * eps) * tensor_ + eps
 
+
+def binarize_topk(batch, k):
+    return F.one_hot(torch.topk(batch, k).indices, batch.shape[1]).sum(dim=1)
+
+
 def multiindex_nll_loss(outputs, labels):
     # loss = torch.mean(-torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1))
     neg_sums = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
@@ -160,14 +165,13 @@ class MnistTrainer(object):
                 for data in self.testloader:
                     images, labels = data
                     outputs = net(images)
-                    # TODO w sumie topk przydaloby sie znowu
-                    # TODO zrobmy jednak na wiekszym size (niech bedzie == 2) na wszelki -> total += labels.size(0)
+                    # TODO 'k' i '10' tez do wyjebania
                     # TODO to trzeba bedzie ekstrahowac
 
-
                     k = 1
-                    predicted = F.one_hot(torch.topk(outputs, k).indices, 10).sum(dim=1)
+                    predicted = binarize_topk(outputs, k)
                     labels1 = F.one_hot(labels, 10)
+                    labels1 = binarize_topk(labels1, k)
                     total += outputs.shape[0]
                     correct += (predicted == labels1).all(dim=1).int().sum().item()
 
@@ -177,9 +181,6 @@ class MnistTrainer(object):
                     # predicted = F.one_hot(labels, 10)
                     # total += 1
                     # correct += (predicted == labels1).all().int().item()
-
-
-
 
 
                     """do 'correct' dodajemy 0 lub 1, jednak jest to zapisany w nieintuicyjny sposób [sum() == WTF]"""
