@@ -141,6 +141,7 @@ class MnistTrainer(object):
                 for data in self.testloader:
                     images, labels = data
                     outputs = net(images)
+                    # TODO to trzeba bedzie ekstrahowac
                     _, predicted = torch.max(outputs.data, 1)
                     total += labels.size(0)
                     """do 'correct' dodajemy 0 lub 1, jednak jest to zapisany w nieintuicyjny sposób [sum() == WTF]"""
@@ -154,7 +155,7 @@ def main():
     torch.manual_seed(0)
     transform0 = transforms.Compose([transforms.ToTensor()])
 
-    # return
+    return
 
     trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0) for b in [True, False]]
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
@@ -195,42 +196,52 @@ if __name__ == '__main__':
 # outputs[0].shape
 # Out[8]: torch.Size([10])
 
-# TODO sprawdzic 2d NLL lossa
+
+outputs = torch.Tensor([[0.05, 0.9, 0.3, 0.05, 0.05, 0.05], [0.01, 0.95, 0.05, 0.3, 0.05, 0.05]]) #torch.Size([2, 6])
+labels = torch.Tensor([[0, 1, 1, 0, 0, 0], [0, 1, 0, 1, 0, 0]]) #torch.Size([2, 6])
+
+
+
+
+
+
+
+
+
+# TODO zaklepac swoja funckej dla docelowych shapow
+
+
+# TODO explode na labelach mnistow
 # TODO zrobic customowy logloss ( z dwóch NLL-i)
-# TODO wlasciwa funckje jakims searchem po wszystkich mozliwych
 # TODO moze na slacku pisze, co to za funkcja
 
-criterion = nn.CrossEntropyLoss()
+
+
+"""Dzialanie (obecnych) loss funkcji"""
+# criterion = nn.CrossEntropyLoss()
 # criterion = nn.NLLLoss()
-output = torch.Tensor([[47.0333, -8.8092, -31.7119, -15.8912, -14.0070, 58.2908, 15.3053, 16.3086, 14.9250, 1.6518]]) #torch.Size([1, 10])
-labels = torch.tensor([6], dtype=torch.long) # torch.Size([1])
-criterion(output, labels)
+# output = torch.Tensor([[47.0333, -8.8092, -31.7119, -15.8912, -14.0070, 58.2908, 15.3053, 16.3086, 14.9250, 1.6518]]) #torch.Size([1, 10])
+# labels = torch.tensor([6], dtype=torch.long) # torch.Size([1])
+# criterion(output, labels)
 
 
-
-# TODO wymyśleć dane wejściowe i sprawdzić
-
-# 2D loss example (used, for example, with image inputs)
-N, C = 5, 4
-loss = nn.NLLLoss()
-# input is of size N x C x height x width
-data = torch.randn(N, 16, 10, 10)
-conv = nn.Conv2d(16, C, (3, 3))
-m = nn.LogSoftmax(dim=1)
-# each element in target has to have 0 <= value < C
-target = torch.empty(N, 8, 8, dtype=torch.long).random_(0, C) # torch.Size([5, 8, 8])
-input = m(conv(data)) # torch.Size([5, 4, 8, 8])
-output = loss(input, target)
-output.backward()
+"""SHAPE - DEPENDPEND func"""
+# def func1(output, target):
+#     loss = torch.sum(torch.mean(output, dim=1) * target)
+#     return loss
+#
+# output = torch.Tensor([[2., 3.]])
+# target = torch.Tensor([1.2])
+#
+# outputS = torch.Tensor([[2., 3.], [4., 7.]])
+# targetS = torch.Tensor([1.2, 0.5])
+#
+# func1(output, target)
+# func1(outputS, targetS)
 
 
-
-
-
-# output = torch.Tensor([47.0333, -8.8092, -31.7119, -15.8912, -14.0070, 58.2908, 15.3053, 16.3086, 14.9250, 1.6518])
-# labels = torch.tensor(6)
-# output = torch.Tensor([[-1.3446,  1.7837, -0.2075, -0.0454, -0.8952]])
-# labels = torch.tensor([4], dtype=torch.long)
+"""DECYZJA - custom"""
+# trzeba zrobic recznie, bo i tak dostaniemy jakas sztuczna duplikacje #torch.Size([1, 6, 2]) + nie wiadomo, czy takie sumowanie ma sens
 
 
 """N i C"""
@@ -244,6 +255,3 @@ output.backward()
 
 
 
-# TODO explode na labelach mnistow
-# TODO automatyczny size inputow
-# TODO wczytanie GSN-u.
