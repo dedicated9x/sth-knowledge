@@ -159,17 +159,15 @@ class MnistTrainer(object):
                 for data in self.testloader:
                     images, labels = data
                     outputs = net(images)
-                    # TODO wez kilka najwiekszych
+                    # TODO zrobmy jednak na wiekszym size (niech bedzie == 2) na wszelki -> total += labels.size(0)
                     # TODO to trzeba bedzie ekstrahowac
 
                     k = 1
-                    z1 = F.one_hot(torch.topk(outputs, k).indices, 10).sum(dim=0)
-                    # z2 = F.one_hot(labels.flatten(), 10)
-                    z2 = F.one_hot(labels, 10)
-                    # (z1 == z2).all().int().item()
+                    labels1 = F.one_hot(torch.topk(outputs, k).indices, 10).sum(dim=0)
+                    predicted = F.one_hot(labels, 10)
 
                     total += 1
-                    correct += (z1 == z2).all().int().item()
+                    correct += (predicted == labels1).all().int().item()
 
                     """do 'correct' dodajemy 0 lub 1, jednak jest to zapisany w nieintuicyjny sposób [sum() == WTF]"""
                     # _, predicted = torch.max(outputs.data, 1)
