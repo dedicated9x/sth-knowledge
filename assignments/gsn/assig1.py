@@ -94,9 +94,11 @@ class ShapesDataset(Dataset):
         return sample
 
 def interiorize(tensor_):
+    """
+    example: interiorize(torch.Tensor([0., 0.00001, 0.5, .9999, 1.]))
+    """
     eps = 1e-4
     return (1 - 2 * eps) * tensor_ + eps
-    # interiorize(torch.Tensor([0., 0.00001, 0.5, .9999, 1.]))
 
 def multiindex_nll_loss(outputs, labels):
     # loss = torch.mean(-torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1))
@@ -157,11 +159,22 @@ class MnistTrainer(object):
                 for data in self.testloader:
                     images, labels = data
                     outputs = net(images)
+                    # TODO wez kilka najwiekszych
                     # TODO to trzeba bedzie ekstrahowac
-                    _, predicted = torch.max(outputs.data, 1)
-                    total += labels.size(0)
+
+                    k = 1
+                    z1 = F.one_hot(torch.topk(outputs, k).indices, 10).sum(dim=0)
+                    # z2 = F.one_hot(labels.flatten(), 10)
+                    z2 = F.one_hot(labels, 10)
+                    # (z1 == z2).all().int().item()
+
+                    total += 1
+                    correct += (z1 == z2).all().int().item()
+
                     """do 'correct' dodajemy 0 lub 1, jednak jest to zapisany w nieintuicyjny sposób [sum() == WTF]"""
-                    correct += (predicted == labels).sum().item()
+                    # _, predicted = torch.max(outputs.data, 1)
+                    # total += labels.size(0)
+                    # correct += (predicted == labels).sum().item()
 
             print('Accuracy of the network on the {} test images: {} %'.format(
                 total, 100 * correct / total))
@@ -195,22 +208,31 @@ if __name__ == '__main__':
     main()
 
 
-"""skurwialy case 389"""
-labels = torch.tensor([5], dtype=torch.long) # [0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
-outputs = torch.Tensor([[-18.5508, -17.9211, -19.8926, -13.2589, -16.2123,  16.8303, -14.1339, -20.7289, -11.2858, -14.3649]]) #torch.Size([2, 10])
+"""SCRATCH"""
+x = torch.Tensor([[1.3470e-04, 1.0614e-04, 1.2997e-02, 2.9724e-02, 1.0008e-04, 9.2470e-04, 1.0000e-04, 9.9409e-01, 4.0379e-04, 2.0061e-04]])
+k = 2
+F.one_hot(torch.topk(x.flatten(), k).indices, 10).sum(dim=0)
+k = 1
+F.one_hot(torch.topk(x.flatten(), k).indices, 10).sum(dim=0)
 
-
-labels1 = F.one_hot(labels, 10) # torch.Size([2, 10])
-outputs1 = 0.9999 * torch.sigmoid(outputs)
-multiindex_nll_loss(outputs1, labels1)
-
-outputs = outputs1
-labels = labels1
 
 # TODO one_hot na target_transform + GSNDataset
 
 # TODO Trening
 # TODO wyklad :)
+
+"""skurwialy case 389"""
+# labels = torch.tensor([5], dtype=torch.long) # [0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
+# outputs = torch.Tensor([[-18.5508, -17.9211, -19.8926, -13.2589, -16.2123,  16.8303, -14.1339, -20.7289, -11.2858, -14.3649]]) #torch.Size([2, 10])
+#
+#
+# labels1 = F.one_hot(labels, 10) # torch.Size([2, 10])
+# outputs1 = 0.9999 * torch.sigmoid(outputs)
+# multiindex_nll_loss(outputs1, labels1)
+#
+# outputs = outputs1
+# labels = labels1
+
 
 """syntetyk"""
 # outputs = torch.Tensor([[0.05, 0.9, 0.3, 0.05, 0.05, 0.05], [0.01, 0.95, 0.05, 0.3, 0.05, 0.05]]) #torch.Size([2, 6])
