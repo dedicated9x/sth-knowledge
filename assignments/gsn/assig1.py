@@ -33,7 +33,8 @@ class Linear(torch.nn.Module):
 
 
     def reset_parameters(self):
-        truncated_normal_(self.weight, std=0.5)
+        # truncated_normal_(self.weight, std=0.5)
+        init.kaiming_normal_(self.weight, mode='fan_in')
         init.zeros_(self.bias)
 
     """x -> inputy (wchodzą w petli SGD)"""
@@ -90,6 +91,10 @@ class ShapesDataset(Dataset):
         sample = (image, label)
         return sample
 
+def multiindex_nll_loss(outputs, labels):
+    # loss = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels))
+    loss = torch.mean(-torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1))
+    return loss
 
 class MnistTrainer(object):
     def __init__(self, net, datasets, no_epoch=20):
@@ -121,7 +126,34 @@ class MnistTrainer(object):
                 """label(1), output(10)"""
                 """labels.shape -> torch.Size([128]) // outputs.shape -> torch.Size([128, 10])"""
                 """criterion(outputs[0:1], labels[0:1])"""
-                loss = criterion(outputs, labels)
+                # loss = criterion(outputs, labels)
+
+                labels1 = F.one_hot(labels, 10)  # torch.Size([2, 10])
+                outputs1 = 0.9999 * torch.sigmoid(outputs)
+                loss = multiindex_nll_loss(outputs1, labels1)
+                #
+                # labels = labels1
+                # outputs = outputs1
+                #
+                # z1 = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
+                # z1[65]
+                #
+                # outputs = outputs[65:66]
+                # labels = labels[65:66]
+                #
+                # z2 = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
+                # z2
+                #
+                #
+                # if i == 389:
+                #     a = 2
+
+                # 0.24291181564331055
+                # 0.21021124720573425
+                # 0.2863709628582001
+                # if 0.28637096 < loss.item() <0.28637097:
+                #     a = 2
+
                 """loss to torch.Tenser. Stąd (kozacka) metoda .backward()"""
                 loss.backward()
                 """tensor (loss) liczy TYLKO 'grad'.  A przecież nam zależy na minimum (w końcu SDG)"""
@@ -133,6 +165,8 @@ class MnistTrainer(object):
                 if i % 100 == 99:
                     print('[%d, %5d] loss: %.3f' %
                           (epoch + 1, i + 1, running_loss / 100))
+                    # print(running_loss)
+                    # sys.exit()
                     running_loss = 0.0
             correct = 0
             total = 0
@@ -155,25 +189,25 @@ def main():
     torch.manual_seed(0)
     transform0 = transforms.Compose([transforms.ToTensor()])
 
-    return
+    # return
 
     trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0) for b in [True, False]]
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
     net_base = Net()
-    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=2)
+    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=3)
     trainer.train()
 
 """
-[1,   100] loss: 2.304
-[1,   200] loss: 0.618
-[1,   300] loss: 0.492
-[1,   400] loss: 0.416
-Accuracy of the network on the 10000 test images: 90.11 %
-[2,   100] loss: 0.337
-[2,   200] loss: 0.321
-[2,   300] loss: 0.317
-[2,   400] loss: 0.293
-Accuracy of the network on the 10000 test images: 91.72 %
+[1,   100] loss: 0.679
+[1,   200] loss: 0.282
+[1,   300] loss: 0.215
+[1,   400] loss: 0.192
+Accuracy of the network on the 10000 test images: 95.01 %
+[2,   100] loss: 0.143
+[2,   200] loss: 0.136
+[2,   300] loss: 0.135
+[2,   400] loss: 0.127
+Accuracy of the network on the 10000 test images: 96.09 %
 """
 
 
@@ -196,30 +230,74 @@ if __name__ == '__main__':
 # outputs[0].shape
 # Out[8]: torch.Size([10])
 
+# outputs[0:2]
+# Out[2]:
+# tensor([[-0.0017,  1.1775, -0.3094, -0.3539,  0.0291, -0.0736, -0.1235,  0.0097, -0.9908,  0.5361],
+#         [ 0.1747,  0.5950,  0.0957, -0.3287, -0.1601, -0.0745,  0.2418,  0.0014, -0.3589,  0.3077]], grad_fn=<SliceBackward>)
+# labels[0:2]
+# Out[3]: tensor([2, 5])
+
+# [1,   100] loss: 1.417
+# [1,   200] loss: 0.529
+# [1,   300] loss: 0.405
+# [1,   400] loss: nan
+
+# TODO zbierzmy logi co tu sie odjebalo
+# TODO zamiana sum na mean()
+# TODO zrob jakies aweraging
 # TODO co zrobic z zerem ???
 
-def multiindex_nll_loss(outputs, labels):
-    loss = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels))
-    return loss
+# def multiindex_nll_loss(outputs, labels):
+#     loss = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels))
+#     return loss
 
-outputs = torch.Tensor([[0.05, 0.9, 0.3, 0.05, 0.05, 0.05], [0.01, 0.95, 0.05, 0.3, 0.05, 0.05]]) #torch.Size([2, 6])
-labels = torch.Tensor([[0, 1, 1, 0, 0, 0], [0, 1, 0, 1, 0, 0]]) #torch.Size([2, 6])
+"""syntetyk"""
+# outputs = torch.Tensor([[0.05, 0.9, 0.3, 0.05, 0.05, 0.05], [0.01, 0.95, 0.05, 0.3, 0.05, 0.05]]) #torch.Size([2, 6])
+# labels = torch.Tensor([[0, 1, 1, 0, 0, 0], [0, 1, 0, 1, 0, 0]]) #torch.Size([2, 6])
 
+
+"""natural (stary init)"""
+# labels = torch.tensor([6, 2], dtype=torch.long) # torch.Size([2])
+# outputs = torch.Tensor([[47.0333, -8.8092, -31.7119, -15.8912, -14.0070, 58.2908, 15.3053, 16.3086, 14.9250, 1.6518], [ 19.9257,  -6.3817, -14.2751,  21.4164, -21.7247,  49.5124,  -2.5922, -21.6784,  -1.3972,  10.1371]]) #torch.Size([2, 10])
+
+
+"""natural (nowy init)"""
+# labels = torch.tensor([2, 5], dtype=torch.long) # torch.Size([2])
+# outputs = torch.Tensor([[-0.0017,  1.1775, -0.3094, -0.3539,  0.0291, -0.0736, -0.1235,  0.0097, -0.9908,  0.5361], [ 0.1747,  0.5950,  0.0957, -0.3287, -0.1601, -0.0745,  0.2418,  0.0014, -0.3589,  0.3077]]) #torch.Size([2, 10])
+
+
+"""skurwialy case 389"""
+labels = torch.tensor([5], dtype=torch.long) # [0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
+outputs = torch.Tensor([[-18.5508, -17.9211, -19.8926, -13.2589, -16.2123,  16.8303, -14.1339, -20.7289, -11.2858, -14.3649]]) #torch.Size([2, 10])
+
+
+labels1 = F.one_hot(labels, 10) # torch.Size([2, 10])
+outputs1 = 0.9999 * torch.sigmoid(outputs)
+multiindex_nll_loss(outputs1, labels1)
+
+outputs = outputs1
+labels = labels1
+
+torch.log(1 - torch.sigmoid(torch.tensor([47.]))) # TODO <- to jest problem
+
+# TODO chyba trzeba zaepsilonic (1-epsilon)
+# TODO wrzucic ten sigmoid wczensiej
+# TODO sprawdzic, jak sie wagi zmieniaja
+
+# TODO test na prodzie
+# TODO target_transform
+# TODO moze na slacku pisze, co to za funkcja
+
+
+"""testy log sumy"""
+# outputs = torch.Tensor([[0.05, 0.9, 0.3, 0.05, 0.05, 0.05], [0.01, 0.95, 0.05, 0.3, 0.05, 0.05]]) #torch.Size([2, 6])
+# labels = torch.Tensor([[0, 1, 1, 0, 0, 0], [0, 1, 0, 1, 0, 0]]) #torch.Size([2, 6])
 # y = labels
 # y1 = outputs
 # -torch.sum(torch.log(y1) * y + torch.log(1 - y1) * (1 - y))
 
 
-# TODO zaklepac swoja funckej dla docelowych shapow
-
-
-# TODO explode na labelach mnistow
-# TODO zrobic customowy logloss ( z dwóch NLL-i)
-# TODO moze na slacku pisze, co to za funkcja
-
-
-
-"""Dzialanie (obecnych) loss funkcji"""
+"""XYZ Dzialanie (obecnych) loss funkcji"""
 # criterion = nn.CrossEntropyLoss()
 # criterion = nn.NLLLoss()
 # output = torch.Tensor([[47.0333, -8.8092, -31.7119, -15.8912, -14.0070, 58.2908, 15.3053, 16.3086, 14.9250, 1.6518]]) #torch.Size([1, 10])
