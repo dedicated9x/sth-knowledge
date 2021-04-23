@@ -95,17 +95,18 @@ class MnistTrainer(object):
     def __init__(self, net, no_epoch=20):
         self.net = net
         self.no_epoch = no_epoch
-        transform = transforms.Compose(
-                [transforms.ToTensor()])
+        transform = transforms.Compose([transforms.ToTensor()])
+
+        # TODO wykestrachowac te datasety stad
         self.trainset = torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=True, transform=transform)
-        self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=4)
-        # self.trainset = MnistTrainDataset(rf"C:\Datasets\mnist_", slice_=slice(0, 60000))
-        # self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=0)
-        #
         self.testset = torchvision.datasets.MNIST(root=rf"C:\Datasets", train=False, download=True, transform=transform)
-        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=4)
+        # self.trainset = MnistTrainDataset(rf"C:\Datasets\mnist_", slice_=slice(0, 60000))
         # self.testset = MnistTrainDataset(rf"C:\Datasets\mnist_", slice_=slice(60000, 70000))
-        # self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=0)
+
+        num_workers_train = 0 if type(self.trainset) == MnistTrainDataset else 4
+        num_workers_test = 0 if type(self.testset) == MnistTrainDataset else 4
+        self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=num_workers_train)
+        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=num_workers_test)
 
     def train(self):
         """net -> to prostu nasza sieć (nn.Model)"""
