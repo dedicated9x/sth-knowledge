@@ -91,9 +91,15 @@ class ShapesDataset(Dataset):
         sample = (image, label)
         return sample
 
+def interiorize(tensor_):
+    eps = 1e-4
+    return (1 - 2 * eps) * tensor_ + eps
+    # interiorize(torch.Tensor([0., 0.00001, 0.5, .9999, 1.]))
+
 def multiindex_nll_loss(outputs, labels):
-    # loss = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels))
-    loss = torch.mean(-torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1))
+    # loss = torch.mean(-torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1))
+    neg_sums = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
+    loss = torch.mean(neg_sums)
     return loss
 
 class MnistTrainer(object):
@@ -129,7 +135,8 @@ class MnistTrainer(object):
                 # loss = criterion(outputs, labels)
 
                 labels1 = F.one_hot(labels, 10)  # torch.Size([2, 10])
-                outputs1 = 0.9999 * torch.sigmoid(outputs)
+                # outputs1 = 0.9999 * torch.sigmoid(outputs)
+                outputs1 = interiorize(torch.sigmoid(outputs))
                 loss = multiindex_nll_loss(outputs1, labels1)
                 #
                 # labels = labels1
@@ -194,62 +201,42 @@ def main():
     trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0) for b in [True, False]]
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
     net_base = Net()
-    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=3)
+    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=20)
     trainer.train()
 
 """
-[1,   100] loss: 0.679
-[1,   200] loss: 0.282
-[1,   300] loss: 0.215
-[1,   400] loss: 0.192
-Accuracy of the network on the 10000 test images: 95.01 %
-[2,   100] loss: 0.143
-[2,   200] loss: 0.136
-[2,   300] loss: 0.135
-[2,   400] loss: 0.127
-Accuracy of the network on the 10000 test images: 96.09 %
+[1,   100] loss: 1.423
+[1,   200] loss: 0.531
+[1,   300] loss: 0.409
+[1,   400] loss: 0.365
+Accuracy of the network on the 10000 test images: 95.25 %
+[2,   100] loss: 0.284
+[2,   200] loss: 0.282
+[2,   300] loss: 0.269
+[2,   400] loss: 0.260
+Accuracy of the network on the 10000 test images: 95.82 %
 """
-
-
 if __name__ == '__main__':
     main()
 
 
+"""skurwialy case 389"""
+labels = torch.tensor([5], dtype=torch.long) # [0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
+outputs = torch.Tensor([[-18.5508, -17.9211, -19.8926, -13.2589, -16.2123,  16.8303, -14.1339, -20.7289, -11.2858, -14.3649]]) #torch.Size([2, 10])
 
 
-"""SCRATCH"""
-# labels[0]
-# Out[5]: tensor(6)
-# labels[0].shape
-# Out[6]: torch.Size([])
+labels1 = F.one_hot(labels, 10) # torch.Size([2, 10])
+outputs1 = 0.9999 * torch.sigmoid(outputs)
+multiindex_nll_loss(outputs1, labels1)
 
-# outputs[0]
-# Out[7]:
-# tensor([47.0333, -8.8092, -31.7119, -15.8912, -14.0070, 58.2908, 15.3053,
-#         16.3086, 14.9250, 1.6518], grad_fn= < SelectBackward >)
-# outputs[0].shape
-# Out[8]: torch.Size([10])
+outputs = outputs1
+labels = labels1
 
-# outputs[0:2]
-# Out[2]:
-# tensor([[-0.0017,  1.1775, -0.3094, -0.3539,  0.0291, -0.0736, -0.1235,  0.0097, -0.9908,  0.5361],
-#         [ 0.1747,  0.5950,  0.0957, -0.3287, -0.1601, -0.0745,  0.2418,  0.0014, -0.3589,  0.3077]], grad_fn=<SliceBackward>)
-# labels[0:2]
-# Out[3]: tensor([2, 5])
+# TODO sigmoidy na ostatnia warste
+# TODO one_hot na target_transform + GSNDataset
 
-# [1,   100] loss: 1.417
-# [1,   200] loss: 0.529
-# [1,   300] loss: 0.405
-# [1,   400] loss: nan
-
-# TODO zbierzmy logi co tu sie odjebalo
-# TODO zamiana sum na mean()
-# TODO zrob jakies aweraging
-# TODO co zrobic z zerem ???
-
-# def multiindex_nll_loss(outputs, labels):
-#     loss = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels))
-#     return loss
+# TODO Trening
+# TODO wyklad :)
 
 """syntetyk"""
 # outputs = torch.Tensor([[0.05, 0.9, 0.3, 0.05, 0.05, 0.05], [0.01, 0.95, 0.05, 0.3, 0.05, 0.05]]) #torch.Size([2, 6])
@@ -266,28 +253,8 @@ if __name__ == '__main__':
 # outputs = torch.Tensor([[-0.0017,  1.1775, -0.3094, -0.3539,  0.0291, -0.0736, -0.1235,  0.0097, -0.9908,  0.5361], [ 0.1747,  0.5950,  0.0957, -0.3287, -0.1601, -0.0745,  0.2418,  0.0014, -0.3589,  0.3077]]) #torch.Size([2, 10])
 
 
-"""skurwialy case 389"""
-labels = torch.tensor([5], dtype=torch.long) # [0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
-outputs = torch.Tensor([[-18.5508, -17.9211, -19.8926, -13.2589, -16.2123,  16.8303, -14.1339, -20.7289, -11.2858, -14.3649]]) #torch.Size([2, 10])
-
-
-labels1 = F.one_hot(labels, 10) # torch.Size([2, 10])
-outputs1 = 0.9999 * torch.sigmoid(outputs)
-multiindex_nll_loss(outputs1, labels1)
-
-outputs = outputs1
-labels = labels1
-
-torch.log(1 - torch.sigmoid(torch.tensor([47.]))) # TODO <- to jest problem
-
-# TODO chyba trzeba zaepsilonic (1-epsilon)
-# TODO wrzucic ten sigmoid wczensiej
-# TODO sprawdzic, jak sie wagi zmieniaja
-
-# TODO test na prodzie
-# TODO target_transform
-# TODO moze na slacku pisze, co to za funkcja
-
+"""Z czym był problem"""
+# torch.log(1 - torch.sigmoid(torch.tensor([47.])))
 
 """testy log sumy"""
 # outputs = torch.Tensor([[0.05, 0.9, 0.3, 0.05, 0.05, 0.05], [0.01, 0.95, 0.05, 0.3, 0.05, 0.05]]) #torch.Size([2, 6])
