@@ -80,7 +80,9 @@ class ShapesDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        image = self.images[idx]
+        # TODO HERE
+        # image = self.images[idx]
+        image = self.images[idx][0:1]
         label = self.labels[idx]
 
         if self.transform:
@@ -101,6 +103,9 @@ def binarize_topk(batch, k):
     return F.one_hot(torch.topk(batch, k).indices, batch.shape[1]).sum(dim=1)
 
 def multiindex_nll_loss(outputs, labels):
+    # outputs.shape -> Out[14]: torch.Size([512, 6])
+    # labels.shape -> Out[16]: torch.Size([128, 6])
+
     neg_sums = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
     loss = torch.mean(neg_sums)
     return loss
@@ -136,6 +141,10 @@ class MnistTrainer(object):
                 outputs = net(inputs)
                 """labels.shape -> torch.Size([128]) // outputs.shape -> torch.Size([128, 10])"""
                 """criterion(outputs[0:1], labels[0:1])"""
+                # print(inputs.shape)
+                # print(outputs.shape)
+                # print(labels.shape)
+                # sys.exit()
                 loss = criterion(outputs, labels)
 
                 """loss to torch.Tenser. Stąd (kozacka) metoda .backward()"""
@@ -169,14 +178,17 @@ def main():
     transform0 = transforms.Compose([transforms.ToTensor()])
     transform1 = transforms.Lambda(lambda x: F.one_hot(torch.tensor(x), 10))
     df2labels = lambda df, lablen: F.one_hot(torch.tensor(df.apply(lambda row: row['label'], axis=1).values), lablen)
+    # df2labels1 = lambda df, lablen: torch.tensor(df.drop(['name'], axis=1).values)
+    df2labels1 = lambda df, lablen: binarize_topk(torch.tensor(df.drop(['name'], axis=1).values), 2)
 
     # return
 
     # trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; trainset.lablen = 10; testset.k_topk = 1
-    trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
 
-    # TODO zrboci wlasciwe df2labels
-    # TODO odpalic GSN (!!!!!)
+    # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
+    trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]
+
+    # TODO spraw, by to mozna bylo zamieniac
     net_base = Net(trainset.lablen)
     trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=2)
     trainer.train()
@@ -197,19 +209,23 @@ if __name__ == '__main__':
     main()
 
 
-"""SCRATCH"""
-# root = rf"C:\Datasets\mnist_"
+"""problem bit depth"""
+# GSN
+# torch.Size([128, 4, 28, 28])
+# torch.Size([512, 6])
+# torch.Size([128, 6])
+
+# MNIST
+# torch.Size([128, 1, 28, 28])
+# torch.Size([128, 10])
+# torch.Size([128, 10])
+
+
+"""df2labels"""
+# root = rf"C:\Datasets\gsn-2021-1"
 # img_dir = pl.Path(root).joinpath('data')
-# img_labels = pd.read_csv(img_dir.joinpath('labels.csv'))
-#
-# df = img_labels
+# df = pd.read_csv(img_dir.joinpath('labels.csv'))
 # lablen = 10
-#
-# df2labels = lambda df, lablen: F.one_hot(torch.tensor(df.apply(lambda row: row['label'], axis=1)), lablen)
-#
-# z1 = img_labels.apply(lambda row: row['label'], axis=1)
-# z1 = img_labels.apply(lambda row: torch.Tensor([1, 2]), axis=1)
-# z2 = z1.to_list()
 
 
 # TODO przeciez mozna to zrobic na calej tabeli
