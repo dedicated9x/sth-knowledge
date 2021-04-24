@@ -111,6 +111,13 @@ def multiindex_nll_loss(outputs, labels):
     loss = torch.mean(neg_sums)
     return loss
 
+def topk_hot_acc(outputs, labels, labsize, k):
+    predicted = binarize_topk(outputs, k)
+    labels1 = F.one_hot(labels, labsize)
+    labels1 = binarize_topk(labels1, k)
+    correct = (predicted == labels1).all(dim=1).int().sum().item()
+    return correct
+
 class MnistTrainer(object):
     def __init__(self, net, datasets, no_epoch=20):
         self.net = net
@@ -119,7 +126,7 @@ class MnistTrainer(object):
         nw = lambda x: 0 if type(x) == ShapesDataset else 4
         self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=nw(self.trainset))
         # self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=nw(self.testset))
-        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=nw(self.testset))
+        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=2, shuffle=False, num_workers=nw(self.testset))
 
     def train(self):
         """net -> to prostu nasza sieć (nn.Model)"""
@@ -142,7 +149,7 @@ class MnistTrainer(object):
                 outputs = net(inputs)
                 """labels.shape -> torch.Size([128]) // outputs.shape -> torch.Size([128, 10])"""
                 """criterion(outputs[0:1], labels[0:1])"""
-                # HERE
+                # TODO HERE
                 labels1 = F.one_hot(labels, 10)  # torch.Size([2, 10])
                 loss = criterion(outputs, labels1)
 
@@ -160,33 +167,13 @@ class MnistTrainer(object):
                     running_loss = 0.0
             correct = 0
             total = 0
-            """torch.no_grad() -> cntxmngr, który zapewnia, że nic nie odpali .backward() (takie zabezpieczenie)"""
             with torch.no_grad():
                 for data in self.testloader:
                     images, labels = data
                     outputs = net(images)
-                    # TODO 'k' i '10' tez do wyjebania
-                    # TODO to trzeba bedzie ekstrahowac
 
-                    k = 1
-                    predicted = binarize_topk(outputs, k)
-                    labels1 = F.one_hot(labels, 10)
-                    labels1 = binarize_topk(labels1, k)
+                    correct += topk_hot_acc(outputs, labels, self.testset.labsize, self.testset.k_topk)
                     total += outputs.shape[0]
-                    correct += (predicted == labels1).all(dim=1).int().sum().item()
-
-                    """single case"""
-                    # k = 1
-                    # labels1 = F.one_hot(torch.topk(outputs, k).indices, 10).sum(dim=0)
-                    # predicted = F.one_hot(labels, 10)
-                    # total += 1
-                    # correct += (predicted == labels1).all().int().item()
-
-
-                    """do 'correct' dodajemy 0 lub 1, jednak jest to zapisany w nieintuicyjny sposób [sum() == WTF]"""
-                    # _, predicted = torch.max(outputs.data, 1)
-                    # total += labels.size(0)
-                    # correct += (predicted == labels).sum().item()
 
             print('Accuracy of the network on the {} test images: {} %'.format(
                 total, 100 * correct / total))
@@ -200,6 +187,19 @@ def main():
 
     trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0) for b in [True, False]]
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
+    testset.k_topk = 1; testset.labsize = 10
+    """         DAJE TERAZ      (basic label)                       MA BYC OSTATECZNIE
+    MNIST       (6)             [0, 0, 0, 0, 0, 0, 1, 0, 0, 0]      <- tak
+    
+    GSN         (6)             [0, 0, 0, 6, 0, 0, 4, 0, 0, 0]      [0, 0, 0, 6, 0, 0, 4, 0, 0, 0] lub [0, 0, 0, 1, 0, 0, 1, 0, 0, 0]
+    """
+
+    # TODO wrzucic na sucho F.one_hot na koniec ShapesDataset (bez transforms) i zobaczyc, czy zrobia się z tego batche
+    # TODO wrzucic to mnistowi ( do transforms jakos)
+    # TODO zrobic row2label dla ShapesDataset
+    # TODO te linijke wjebac za stary mnist, a nowemu do konstruktora
+    # TODO odhardkodowac te dyche z traina
+    # TODO odhardkodowac dyche z netu
     net_base = Net()
     trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=2)
     trainer.train()
@@ -221,17 +221,19 @@ if __name__ == '__main__':
 
 
 """SCRATCH"""
-x = torch.Tensor([[1.3470e-04, 1.0614e-04, 1.2997e-02, 2.9724e-02, 1.0008e-04, 9.2470e-04, 1.0000e-04, 9.9409e-01, 4.0379e-04, 2.0061e-04]])
-k = 2
-F.one_hot(torch.topk(x.flatten(), k).indices, 10).sum(dim=0)
-k = 1
-F.one_hot(torch.topk(x.flatten(), k).indices, 10).sum(dim=0)
+
+
+# transform0 = transforms.Compose([transforms.ToTensor()])
+# trainset1, testset1 = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0) for b in [True, False]]
+# trainset2, testset2 = [ShapesDataset(rf"C:\Datasets\mnist_", slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
 
 
 # TODO one_hot na target_transform + GSNDataset
+# TODO przejscie na nasze datasey (bedzie szybciej :))
 
-# TODO Trening
 # TODO wyklad :)
+# TODO bokser
+# TODO wyekstrachowanie czego sie
 
 """skurwialy case 389"""
 # labels = torch.tensor([5], dtype=torch.long) # [0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
