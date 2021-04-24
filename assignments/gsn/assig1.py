@@ -44,12 +44,11 @@ class Linear(torch.nn.Module):
         return r
 
 class Net(nn.Module):
-    def __init__(self):
+    def __init__(self, output_size):
         super(Net, self).__init__()
         self.fc1 = Linear(784, 64)
         self.fc2 = Linear(64, 64)
-        # TODO HERE
-        self.fc3 = Linear(64, 10)
+        self.fc3 = Linear(64, output_size)
 
     """x -> inputy (wchodzą w petli SGD)"""
     def forward(self, x):
@@ -173,13 +172,12 @@ def main():
 
     # return
 
-    # trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; testset.k_topk = 1
+    # trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; trainset.lablen = 10; testset.k_topk = 1
     trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
 
-    # TODO k_topk z automatu
-    # TODO odhardkodowac te dyche z traina i z netu
-    # TODO odhardkodowac dyche z netu
-    net_base = Net()
+    # TODO zrboci wlasciwe df2labels
+    # TODO odpalic GSN (!!!!!)
+    net_base = Net(trainset.lablen)
     trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=2)
     trainer.train()
 
