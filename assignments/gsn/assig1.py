@@ -64,19 +64,18 @@ class Net(nn.Module):
 MB_SIZE = 128
 
 class ShapesDataset(Dataset):
-    def __init__(self, root, lablen, k_topk, transform=None, target_transform=None, slice_=None):
+    def __init__(self, root, df2labels, lablen, k_topk, transform=None, target_transform=None, slice_=None):
         self.img_dir = pl.Path(root).joinpath('data')
         img_labels = pd.read_csv(self.img_dir.joinpath('labels.csv'))
         if slice_ is not None:
             img_labels = img_labels[slice_]
         self.images = [read_image(self.img_dir.joinpath(name).__str__()) / 255 for name in img_labels['name']]
-        self.labels = img_labels['label'].reset_index(drop=True)
+        self.labels = df2labels(img_labels, lablen)
+
         self.transform = None
         self.target_transform = target_transform
         self.lablen = lablen
         self.k_topk = k_topk
-        # TODO niby z get item powinno isc, ale juz tutaj powinnismy miec info o labelach - sprawdzy co tu jest
-        # TODO w sumie tutaj mozna by to wpisac
 
     def __len__(self):
         return len(self.labels)
@@ -84,9 +83,6 @@ class ShapesDataset(Dataset):
     def __getitem__(self, idx):
         image = self.images[idx]
         label = self.labels[idx]
-        # TODO HERE
-        label = F.one_hot(torch.tensor(label), self.lablen)
-
 
         if self.transform:
             image = self.transform(image)
@@ -173,14 +169,13 @@ def main():
     torch.manual_seed(0)
     transform0 = transforms.Compose([transforms.ToTensor()])
     transform1 = transforms.Lambda(lambda x: F.one_hot(torch.tensor(x), 10))
+    df2labels = lambda df, lablen: F.one_hot(torch.tensor(df.apply(lambda row: row['label'], axis=1).values), lablen)
 
     # return
 
-    trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; testset.k_topk = 1
-    # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
+    # trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; testset.k_topk = 1
+    trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
 
-    # TODO zrobic row2label dla ShapesDataset
-    # TODO labele i tak powinny obliczac sie juz w inicie
     # TODO k_topk z automatu
     # TODO odhardkodowac te dyche z traina i z netu
     # TODO odhardkodowac dyche z netu
@@ -205,6 +200,21 @@ if __name__ == '__main__':
 
 
 """SCRATCH"""
+# root = rf"C:\Datasets\mnist_"
+# img_dir = pl.Path(root).joinpath('data')
+# img_labels = pd.read_csv(img_dir.joinpath('labels.csv'))
+#
+# df = img_labels
+# lablen = 10
+#
+# df2labels = lambda df, lablen: F.one_hot(torch.tensor(df.apply(lambda row: row['label'], axis=1)), lablen)
+#
+# z1 = img_labels.apply(lambda row: row['label'], axis=1)
+# z1 = img_labels.apply(lambda row: torch.Tensor([1, 2]), axis=1)
+# z2 = z1.to_list()
+
+
+# TODO przeciez mozna to zrobic na calej tabeli
 # TODO one_hot na target_transform + GSNDataset
 # TODO przejscie na nasze datasey (bedzie szybciej :))
 
