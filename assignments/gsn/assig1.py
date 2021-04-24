@@ -48,6 +48,7 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.fc1 = Linear(784, 64)
         self.fc2 = Linear(64, 64)
+        # TODO HERE
         self.fc3 = Linear(64, 10)
 
     """x -> inputy (wchodzą w petli SGD)"""
@@ -63,7 +64,7 @@ class Net(nn.Module):
 MB_SIZE = 128
 
 class ShapesDataset(Dataset):
-    def __init__(self, root, transform=None, target_transform=None, slice_=None):
+    def __init__(self, root, lablen, k_topk, transform=None, target_transform=None, slice_=None):
         self.img_dir = pl.Path(root).joinpath('data')
         img_labels = pd.read_csv(self.img_dir.joinpath('labels.csv'))
         if slice_ is not None:
@@ -72,6 +73,10 @@ class ShapesDataset(Dataset):
         self.labels = img_labels['label'].reset_index(drop=True)
         self.transform = None
         self.target_transform = target_transform
+        self.lablen = lablen
+        self.k_topk = k_topk
+        # TODO niby z get item powinno isc, ale juz tutaj powinnismy miec info o labelach - sprawdzy co tu jest
+        # TODO w sumie tutaj mozna by to wpisac
 
     def __len__(self):
         return len(self.labels)
@@ -79,8 +84,9 @@ class ShapesDataset(Dataset):
     def __getitem__(self, idx):
         image = self.images[idx]
         label = self.labels[idx]
-        label = F.one_hot(torch.tensor(label), 10)
         # TODO HERE
+        label = F.one_hot(torch.tensor(label), self.lablen)
+
 
         if self.transform:
             image = self.transform(image)
@@ -104,7 +110,7 @@ def multiindex_nll_loss(outputs, labels):
     loss = torch.mean(neg_sums)
     return loss
 
-def topk_hot_acc(outputs, labels, labsize, k):
+def topk_hot_acc(outputs, labels, k):
     outputs_bin = binarize_topk(outputs, k)
     labels_bin = binarize_topk(labels, k)
     correct = (outputs_bin == labels_bin).all(dim=1).int().sum().item()
@@ -156,7 +162,7 @@ class MnistTrainer(object):
                     inputs_, labels_ = data
                     outputs_ = net(inputs_)
 
-                    correct += topk_hot_acc(outputs_, labels_, self.testset.labsize, self.testset.k_topk)
+                    correct += topk_hot_acc(outputs_, labels_, self.testset.k_topk)
                     total += outputs_.shape[0]
 
             print('Accuracy of the network on the {} test images: {} %'.format(
@@ -170,15 +176,13 @@ def main():
 
     # return
 
-    trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]
-    # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
-    testset.k_topk = 1; testset.labsize = 10
-    """         (basic label)                       MA BYC OSTATECZNIE
-    MNIST       [0, 0, 0, 0, 0, 0, 1, 0, 0, 0]      <- tak
-    GSN         [0, 0, 0, 6, 0, 0, 4, 0, 0, 0]      [0, 0, 0, 6, 0, 0, 4, 0, 0, 0] lub [0, 0, 0, 1, 0, 0, 1, 0, 0, 0]
-    """
+    trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; testset.k_topk = 1
+    # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
+
     # TODO zrobic row2label dla ShapesDataset
-    # TODO odhardkodowac te dyche z traina
+    # TODO labele i tak powinny obliczac sie juz w inicie
+    # TODO k_topk z automatu
+    # TODO odhardkodowac te dyche z traina i z netu
     # TODO odhardkodowac dyche z netu
     net_base = Net()
     trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=2)
@@ -201,15 +205,23 @@ if __name__ == '__main__':
 
 
 """SCRATCH"""
-
-
-
 # TODO one_hot na target_transform + GSNDataset
 # TODO przejscie na nasze datasey (bedzie szybciej :))
 
 # TODO wyklad :)
 # TODO bokser
 # TODO wyekstrachowanie czego sie
+
+
+"""DECYZJA - tryb szybki"""
+# Nie robimy, bo datasety za chwilę i tak będa niewielkie.
+
+
+
+"""Jak ma być"""
+#             (basic label)                       MA BYC OSTATECZNIE
+# MNIST       [0, 0, 0, 0, 0, 0, 1, 0, 0, 0]      <- tak
+# GSN         [0, 0, 0, 6, 0, 0, 4, 0, 0, 0]      [0, 0, 0, 6, 0, 0, 4, 0, 0, 0] lub [0, 0, 0, 1, 0, 0, 1, 0, 0, 0]
 
 
 """skurwialy case 389"""
