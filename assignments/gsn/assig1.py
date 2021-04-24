@@ -11,7 +11,6 @@ import pandas as pd
 import pathlib as pl
 from torch.utils.data import Dataset
 from torchvision.io import read_image
-
 import sys
 
 
@@ -44,7 +43,6 @@ class Linear(torch.nn.Module):
         r += self.bias
         return r
 
-
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -59,14 +57,10 @@ class Net(nn.Module):
         """nn.Model.__call__() odpala .forward()"""
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        # x = self.fc3(x)
-        # HERE
         x = interiorize(torch.sigmoid(self.fc3(x)))
         return x
 
-
 MB_SIZE = 128
-
 
 class ShapesDataset(Dataset):
     def __init__(self, root, transform=None, target_transform=None, slice_=None):
@@ -85,6 +79,8 @@ class ShapesDataset(Dataset):
     def __getitem__(self, idx):
         image = self.images[idx]
         label = self.labels[idx]
+        label = F.one_hot(torch.tensor(label), 10)
+        # TODO HERE
 
         if self.transform:
             image = self.transform(image)
@@ -100,22 +96,18 @@ def interiorize(tensor_):
     eps = 1e-4
     return (1 - 2 * eps) * tensor_ + eps
 
-
 def binarize_topk(batch, k):
     return F.one_hot(torch.topk(batch, k).indices, batch.shape[1]).sum(dim=1)
 
-
 def multiindex_nll_loss(outputs, labels):
-    # loss = torch.mean(-torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1))
     neg_sums = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
     loss = torch.mean(neg_sums)
     return loss
 
 def topk_hot_acc(outputs, labels, labsize, k):
-    predicted = binarize_topk(outputs, k)
-    labels1 = F.one_hot(labels, labsize)
-    labels1 = binarize_topk(labels1, k)
-    correct = (predicted == labels1).all(dim=1).int().sum().item()
+    outputs_bin = binarize_topk(outputs, k)
+    labels_bin = binarize_topk(labels, k)
+    correct = (outputs_bin == labels_bin).all(dim=1).int().sum().item()
     return correct
 
 class MnistTrainer(object):
@@ -123,17 +115,12 @@ class MnistTrainer(object):
         self.net = net
         self.no_epoch = no_epoch
         self.trainset, self.testset = datasets
-        nw = lambda x: 0 if type(x) == ShapesDataset else 4
-        self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True, num_workers=nw(self.trainset))
-        # self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=1, shuffle=False, num_workers=nw(self.testset))
-        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=2, shuffle=False, num_workers=nw(self.testset))
+        self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True)
+        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=2, shuffle=False)
+
 
     def train(self):
-        """net -> to prostu nasza sieć (nn.Model)"""
-        # net = Net()
         net = self.net
-        """criterion -> zwykła funkcja, której użyjemy później"""
-        # criterion = nn.CrossEntropyLoss()
         criterion = multiindex_nll_loss
         """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
         optimizer = optim.SGD(net.parameters(), lr=0.05, momentum=0.9)
@@ -144,14 +131,11 @@ class MnistTrainer(object):
                 inputs, labels = data
                 """pytorch z defaultu sumuje (!) dotychczasowe gradienty. Tym je resetujemy."""
                 optimizer.zero_grad()
-
                 """nn.Model.__call__() odpala .forward()"""
                 outputs = net(inputs)
                 """labels.shape -> torch.Size([128]) // outputs.shape -> torch.Size([128, 10])"""
                 """criterion(outputs[0:1], labels[0:1])"""
-                # TODO HERE
-                labels1 = F.one_hot(labels, 10)  # torch.Size([2, 10])
-                loss = criterion(outputs, labels1)
+                loss = criterion(outputs, labels)
 
                 """loss to torch.Tenser. Stąd (kozacka) metoda .backward()"""
                 loss.backward()
@@ -169,11 +153,11 @@ class MnistTrainer(object):
             total = 0
             with torch.no_grad():
                 for data in self.testloader:
-                    images, labels = data
-                    outputs = net(images)
+                    inputs_, labels_ = data
+                    outputs_ = net(inputs_)
 
-                    correct += topk_hot_acc(outputs, labels, self.testset.labsize, self.testset.k_topk)
-                    total += outputs.shape[0]
+                    correct += topk_hot_acc(outputs_, labels_, self.testset.labsize, self.testset.k_topk)
+                    total += outputs_.shape[0]
 
             print('Accuracy of the network on the {} test images: {} %'.format(
                 total, 100 * correct / total))
@@ -182,22 +166,18 @@ class MnistTrainer(object):
 def main():
     torch.manual_seed(0)
     transform0 = transforms.Compose([transforms.ToTensor()])
+    transform1 = transforms.Lambda(lambda x: F.one_hot(torch.tensor(x), 10))
 
     # return
 
-    trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0) for b in [True, False]]
+    trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
     testset.k_topk = 1; testset.labsize = 10
-    """         DAJE TERAZ      (basic label)                       MA BYC OSTATECZNIE
-    MNIST       (6)             [0, 0, 0, 0, 0, 0, 1, 0, 0, 0]      <- tak
-    
-    GSN         (6)             [0, 0, 0, 6, 0, 0, 4, 0, 0, 0]      [0, 0, 0, 6, 0, 0, 4, 0, 0, 0] lub [0, 0, 0, 1, 0, 0, 1, 0, 0, 0]
+    """         (basic label)                       MA BYC OSTATECZNIE
+    MNIST       [0, 0, 0, 0, 0, 0, 1, 0, 0, 0]      <- tak
+    GSN         [0, 0, 0, 6, 0, 0, 4, 0, 0, 0]      [0, 0, 0, 6, 0, 0, 4, 0, 0, 0] lub [0, 0, 0, 1, 0, 0, 1, 0, 0, 0]
     """
-
-    # TODO wrzucic na sucho F.one_hot na koniec ShapesDataset (bez transforms) i zobaczyc, czy zrobia się z tego batche
-    # TODO wrzucic to mnistowi ( do transforms jakos)
     # TODO zrobic row2label dla ShapesDataset
-    # TODO te linijke wjebac za stary mnist, a nowemu do konstruktora
     # TODO odhardkodowac te dyche z traina
     # TODO odhardkodowac dyche z netu
     net_base = Net()
@@ -223,10 +203,6 @@ if __name__ == '__main__':
 """SCRATCH"""
 
 
-# transform0 = transforms.Compose([transforms.ToTensor()])
-# trainset1, testset1 = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0) for b in [True, False]]
-# trainset2, testset2 = [ShapesDataset(rf"C:\Datasets\mnist_", slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
-
 
 # TODO one_hot na target_transform + GSNDataset
 # TODO przejscie na nasze datasey (bedzie szybciej :))
@@ -234,6 +210,7 @@ if __name__ == '__main__':
 # TODO wyklad :)
 # TODO bokser
 # TODO wyekstrachowanie czego sie
+
 
 """skurwialy case 389"""
 # labels = torch.tensor([5], dtype=torch.long) # [0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
