@@ -80,8 +80,6 @@ class ShapesDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        # TODO HERE
-        # image = self.images[idx]
         image = self.images[idx][0:1]
         label = self.labels[idx]
 
@@ -103,9 +101,6 @@ def binarize_topk(batch, k):
     return F.one_hot(torch.topk(batch, k).indices, batch.shape[1]).sum(dim=1)
 
 def multiindex_nll_loss(outputs, labels):
-    # outputs.shape -> Out[14]: torch.Size([512, 6])
-    # labels.shape -> Out[16]: torch.Size([128, 6])
-
     neg_sums = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
     loss = torch.mean(neg_sums)
     return loss
@@ -122,18 +117,20 @@ class MnistTrainer(object):
         self.no_epoch = no_epoch
         self.trainset, self.testset = datasets
         self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True)
-        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=2, shuffle=False)
+        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=10, shuffle=False)
 
 
     def train(self):
         net = self.net
         criterion = multiindex_nll_loss
         """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
+        # optimizer = optim.SGD(net.parameters(), lr=0.05, momentum=0.9)
         optimizer = optim.SGD(net.parameters(), lr=0.05, momentum=0.9)
 
         for epoch in range(self.no_epoch):
             running_loss = 0.0
             for i, data in enumerate(self.trainloader, 0):
+                # print(i)
                 inputs, labels = data
                 """pytorch z defaultu sumuje (!) dotychczasowe gradienty. Tym je resetujemy."""
                 optimizer.zero_grad()
@@ -141,10 +138,6 @@ class MnistTrainer(object):
                 outputs = net(inputs)
                 """labels.shape -> torch.Size([128]) // outputs.shape -> torch.Size([128, 10])"""
                 """criterion(outputs[0:1], labels[0:1])"""
-                # print(inputs.shape)
-                # print(outputs.shape)
-                # print(labels.shape)
-                # sys.exit()
                 loss = criterion(outputs, labels)
 
                 """loss to torch.Tenser. Stąd (kozacka) metoda .backward()"""
@@ -152,10 +145,9 @@ class MnistTrainer(object):
                 """tensor (loss) liczy TYLKO 'grad'.  A przecież nam zależy na minimum (w końcu SDG)"""
                 optimizer.step()
 
-                """loss w tym momencie to Tensor(1,1,1). Tensory tej kategorii mają metodę .item(), która zwraca ich wartość."""
-                """+= -> bo robimy <stochastic> GD (średnie, sumy, itd.)"""
+                """+= -> bo chcemy logowac troche wieksz liczby"""
                 running_loss += loss.item()
-                if i % 100 == 99:
+                if i % 20 == 19:
                     print('[%d, %5d] loss: %.3f' %
                           (epoch + 1, i + 1, running_loss / 100))
                     running_loss = 0.0
@@ -178,20 +170,29 @@ def main():
     transform0 = transforms.Compose([transforms.ToTensor()])
     transform1 = transforms.Lambda(lambda x: F.one_hot(torch.tensor(x), 10))
     df2labels = lambda df, lablen: F.one_hot(torch.tensor(df.apply(lambda row: row['label'], axis=1).values), lablen)
-    # df2labels1 = lambda df, lablen: torch.tensor(df.drop(['name'], axis=1).values)
     df2labels1 = lambda df, lablen: binarize_topk(torch.tensor(df.drop(['name'], axis=1).values), 2)
 
     # return
 
-    # trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; trainset.lablen = 10; testset.k_topk = 1
+    trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; trainset.lablen = 10; testset.k_topk = 1    # MNIST orig
+    # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]                                                                               # MNIST
+    # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
+    # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]          # GSN - cheat
 
-    # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]
-    trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]
 
-    # TODO spraw, by to mozna bylo zamieniac
     net_base = Net(trainset.lablen)
+    # net_base.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
     trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=2)
     trainer.train()
+    # torch.save(net_base.state_dict(), rf"C:\temp\output\state.pickle")
+
+    # TODO poszukanie dlazego overfitted
+    # TODO zajebanie od razu convolucyjnych (moze ten problem tego wymaga)
+    # TODO znalezienie czegos, co ruszy
+    # TODO wyklad :)
+
+
+    a = 2
 
 """
 [1,   100] loss: 1.423
@@ -228,13 +229,7 @@ if __name__ == '__main__':
 # lablen = 10
 
 
-# TODO przeciez mozna to zrobic na calej tabeli
-# TODO one_hot na target_transform + GSNDataset
-# TODO przejscie na nasze datasey (bedzie szybciej :))
 
-# TODO wyklad :)
-# TODO bokser
-# TODO wyekstrachowanie czego sie
 
 
 """DECYZJA - tryb szybki"""
