@@ -44,20 +44,17 @@ class Linear(torch.nn.Module):
         return r
 
 class Net(nn.Module):
-    def __init__(self, output_size):
+    def __init__(self, core):
         super(Net, self).__init__()
-        self.fc1 = Linear(784, 64)
-        self.fc2 = Linear(64, 64)
-        self.fc3 = Linear(64, output_size)
+        self.core = core
+
 
     """x -> inputy (wchodzą w petli SGD)"""
     def forward(self, x):
         """.view() to .reshape() dla tensorów"""
-        """nn.Model.__call__() odpala .forward()"""
         x = x.view(-1, 28 * 28)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = interiorize(torch.sigmoid(self.fc3(x)))
+        x = self.core(x)
+        x = interiorize(torch.sigmoid(x))
         return x
 
 MB_SIZE = 128
@@ -170,14 +167,6 @@ class MnistTrainer(object):
 
 
 def main():
-    model = nn.Sequential(
-        nn.Conv2d(1, 20, 5),
-        nn.ReLU(),
-        nn.Conv2d(20, 64, 5),
-        nn.ReLU()
-    )
-
-
     torch.manual_seed(0)
     transform0 = transforms.Compose([transforms.ToTensor()])
     transform1 = transforms.Lambda(lambda x: F.one_hot(torch.tensor(x), 10))
@@ -186,20 +175,20 @@ def main():
 
     # return
 
-    trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; trainset.lablen = 10; testset.k_topk = 1; trainset.print_period = 100       # MNIST orig
-    # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]; trainset.print_period = 100                                                                                  # MNIST
+    # trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; trainset.lablen = 10; testset.k_topk = 1; trainset.print_period = 100       # MNIST orig
+    trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]; trainset.print_period = 100                                                                                  # MNIST
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]          # GSN - cheat
 
+    # TODO
+    core_base = nn.Sequential(Linear(784, 64), nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, trainset.lablen))
 
-    net_base = Net(trainset.lablen)
+    net_base = Net(core_base)
     # net_base.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
     trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=2)
     trainer.train()
     # torch.save(net_base.state_dict(), rf"C:\temp\output\state.pickle")
 
-    # TODO wjebaj sequentiala
-    # TODO zobaczmy, jak hujki to wjebywaly do sequential
     # TODO zajebanie od razu convolucyjnych (moze ten problem tego wymaga) (SLACK!!!)
     # TODO znalezienie czegos, co ruszy
     # TODO wyklad :)
