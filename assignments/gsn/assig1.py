@@ -53,8 +53,8 @@ class Net(nn.Module):
     """x -> inputy (wchodzą w petli SGD)"""
     def forward(self, x):
         """.view() to .reshape() dla tensorów"""
-        x = x.view(-1, 28 * 28)
         """nn.Model.__call__() odpala .forward()"""
+        x = x.view(-1, 28 * 28)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = interiorize(torch.sigmoid(self.fc3(x)))
@@ -63,7 +63,7 @@ class Net(nn.Module):
 MB_SIZE = 128
 
 class ShapesDataset(Dataset):
-    def __init__(self, root, df2labels, lablen, k_topk, transform=None, target_transform=None, slice_=None):
+    def __init__(self, root, df2labels, lablen, k_topk, transform=None, target_transform=None, slice_=None, print_period=20):
         self.img_dir = pl.Path(root).joinpath('data')
         img_labels = pd.read_csv(self.img_dir.joinpath('labels.csv'))
         if slice_ is not None:
@@ -75,6 +75,7 @@ class ShapesDataset(Dataset):
         self.target_transform = target_transform
         self.lablen = lablen
         self.k_topk = k_topk
+        self.print_period = print_period
 
     def __len__(self):
         return len(self.labels)
@@ -147,9 +148,12 @@ class MnistTrainer(object):
 
                 """+= -> bo chcemy logowac troche wieksz liczby"""
                 running_loss += loss.item()
-                if i % 20 == 19:
-                    print('[%d, %5d] loss: %.3f' %
-                          (epoch + 1, i + 1, running_loss / 100))
+                # if i % 20 == 19:
+                # if ((i != 0) * (i + 1)) % 100 == 1:
+                #     print('[%d, %5d] loss: %.3f' % (epoch + 1, i, running_loss / 100))
+                if ((i != 0) * (i + 1)) % self.trainset.print_period == 1:
+                    print('[%d, %5d] loss: %.3f' % (epoch + 1, i, running_loss / self.trainset.print_period))
+                    # TODO powyzej dzielimy przez sto
                     running_loss = 0.0
             correct = 0
             total = 0
@@ -166,6 +170,14 @@ class MnistTrainer(object):
 
 
 def main():
+    model = nn.Sequential(
+        nn.Conv2d(1, 20, 5),
+        nn.ReLU(),
+        nn.Conv2d(20, 64, 5),
+        nn.ReLU()
+    )
+
+
     torch.manual_seed(0)
     transform0 = transforms.Compose([transforms.ToTensor()])
     transform1 = transforms.Lambda(lambda x: F.one_hot(torch.tensor(x), 10))
@@ -174,8 +186,8 @@ def main():
 
     # return
 
-    trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; trainset.lablen = 10; testset.k_topk = 1    # MNIST orig
-    # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]                                                                               # MNIST
+    trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; trainset.lablen = 10; testset.k_topk = 1; trainset.print_period = 100       # MNIST orig
+    # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]; trainset.print_period = 100                                                                                  # MNIST
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]          # GSN - cheat
 
@@ -186,8 +198,9 @@ def main():
     trainer.train()
     # torch.save(net_base.state_dict(), rf"C:\temp\output\state.pickle")
 
-    # TODO poszukanie dlazego overfitted
-    # TODO zajebanie od razu convolucyjnych (moze ten problem tego wymaga)
+    # TODO wjebaj sequentiala
+    # TODO zobaczmy, jak hujki to wjebywaly do sequential
+    # TODO zajebanie od razu convolucyjnych (moze ten problem tego wymaga) (SLACK!!!)
     # TODO znalezienie czegos, co ruszy
     # TODO wyklad :)
 
@@ -195,20 +208,26 @@ def main():
     a = 2
 
 """
-[1,   100] loss: 1.423
-[1,   200] loss: 0.531
+[1,   100] loss: 1.431
+[1,   200] loss: 0.529
 [1,   300] loss: 0.409
-[1,   400] loss: 0.365
+[1,   400] loss: 0.364
 Accuracy of the network on the 10000 test images: 95.25 %
-[2,   100] loss: 0.284
+[2,   100] loss: 0.288
 [2,   200] loss: 0.282
-[2,   300] loss: 0.269
+[2,   300] loss: 0.270
 [2,   400] loss: 0.260
 Accuracy of the network on the 10000 test images: 95.82 %
 """
 if __name__ == '__main__':
     main()
 
+
+
+i = 0
+i = 20
+i = 40
+((i != 0) * (i + 1)) % 20
 
 """problem bit depth"""
 # GSN
