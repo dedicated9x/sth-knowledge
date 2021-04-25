@@ -48,10 +48,22 @@ class Net(nn.Module):
         super(Net, self).__init__()
         self.core = core
 
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=(2, 2), stride=2),
+            nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=(2, 2), stride=2)
+        )
+
 
     """x -> inputy (wchodzą w petli SGD)"""
     def forward(self, x):
         """.view() to .reshape() dla tensorów"""
+        # TODO HERE
+        # TODO num of lfa efatures
+        x = self.conv(x)
         x = x.view(-1, 28 * 28)
         x = self.core(x)
         x = interiorize(torch.sigmoid(x))
@@ -176,16 +188,17 @@ def main():
     # return
 
     # trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; trainset.lablen = 10; testset.k_topk = 1; trainset.print_period = 100       # MNIST orig
-    trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]; trainset.print_period = 100                                                                                  # MNIST
-    # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
+    # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]; trainset.print_period = 100                                                                                  # MNIST
+    trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]          # GSN - cheat
 
     # TODO
     core_base = nn.Sequential(Linear(784, 64), nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, trainset.lablen))
+    # core_base = nn.Sequential(Linear(784, 64), nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, trainset.lablen)) # jeszcze dwie warstwy sa
 
     net_base = Net(core_base)
     # net_base.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
-    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=2)
+    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=20)
     trainer.train()
     # torch.save(net_base.state_dict(), rf"C:\temp\output\state.pickle")
 
