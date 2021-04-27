@@ -44,34 +44,26 @@ class Linear(torch.nn.Module):
         return r
 
 class Net(nn.Module):
-    def __init__(self, dense_first, core, conv=None):
+    def __init__(self, dfirst, dcore, dlast, nonlin_outlayer, conv=None):
         super(Net, self).__init__()
-        self.dense_first = dense_first
-        self.core = core
         self.conv = conv if conv is not None else torch.nn.Identity()
-
-        # TODO tego sequentiala wdupic gdzies na przod
-        # self.conv = nn.Sequential(
-        #     nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)),
-        #     nn.ReLU(),
-        #     nn.MaxPool2d(kernel_size=(2, 2), stride=2),
-        #     nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)),
-        #     nn.ReLU(),
-        #     nn.MaxPool2d(kernel_size=(2, 2), stride=2)
-        # )
-
+        self.dense_first = dfirst
+        self.dense_core = dcore
+        self.dense_last = dlast
+        self.nonlin_outlayer = nonlin_outlayer
 
     """x -> inputy (wchodzą w petli SGD)"""
     def forward(self, x):
-        # TODO zrozumiec bardziej, co tu sie odpierdala
         x = self.conv(x)
         x = x.view(-1, 28 * 28)
-
-        # TODO here
         x = self.dense_first(x)
+        x = self.dense_core(x)
+        x = self.dense_last(x)
+        # x = interiorize(torch.sigmoid(x))
 
-        x = self.core(x)
-        x = interiorize(torch.sigmoid(x))
+        # x = interiorize(self.nonlin_outlayer(x))
+        x = self.nonlin_outlayer(x)
+        x = interiorize(x)
         return x
 
 MB_SIZE = 128
@@ -200,12 +192,15 @@ def main():
 
     conv_arbitrary = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
     dhead_784_64 = Linear(784, 64)
-    dcore_arbitrary = nn.Sequential(nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, trainset.lablen))
+    dcore_arbitrary = nn.Sequential(nn.ReLU(), Linear(64, 64), nn.ReLU())
+    dlast1 = Linear(64, trainset.lablen)
+
+    params = {'dfirst': dhead_784_64, 'dcore': dcore_arbitrary, 'dlast': dlast1, 'conv': None, 'nonlin_outlayer': torch.sigmoid}
+    params['conv'] = conv_arbitrary
 
 
+    net_base = Net(**params)
 
-    net_base = Net(dense_first=dhead_784_64, core=dcore_arbitrary, conv=conv_arbitrary)
-    # net_base = Net(dense_first=dhead_784_64, core=dcore_arbitrary)
 
 
     # net_base.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
@@ -213,7 +208,7 @@ def main():
     trainer.train()
     # torch.save(net_base.state_dict(), rf"C:\temp\output\state.pickle")
 
-    # TODO zaimplementowac te 5 elementow
+    # TODO dobrze rozkmnic roznice miedzy 6 60 a 135
     # TODO zrobic sobie cos, co wyciaga inputy do lossow i accuracy (by moc pozniej wydewelopowaac pozostale accuracy) warto miec wtedy wytrenowana siec
 
     a = 2
