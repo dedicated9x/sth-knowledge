@@ -44,26 +44,28 @@ class Linear(torch.nn.Module):
         return r
 
 class Net(nn.Module):
-    def __init__(self, core):
+    def __init__(self, core, conv=None):
         super(Net, self).__init__()
         self.core = core
+        self.conv = conv if conv is not None else torch.nn.Identity()
 
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=(2, 2), stride=2),
-            nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=(2, 2), stride=2)
-        )
+        # TODO tego sequentiala wdupic gdzies na przod
+        # self.conv = nn.Sequential(
+        #     nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)),
+        #     nn.ReLU(),
+        #     nn.MaxPool2d(kernel_size=(2, 2), stride=2),
+        #     nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)),
+        #     nn.ReLU(),
+        #     nn.MaxPool2d(kernel_size=(2, 2), stride=2)
+        # )
 
 
     """x -> inputy (wchodzą w petli SGD)"""
     def forward(self, x):
         """.view() to .reshape() dla tensorów"""
-        # TODO HERE
-        # TODO num of lfa efatures
+        # TODO zrozumiec bardziej, co tu sie odpierdala
         x = self.conv(x)
+
         x = x.view(-1, 28 * 28)
         x = self.core(x)
         x = interiorize(torch.sigmoid(x))
@@ -100,6 +102,7 @@ class ShapesDataset(Dataset):
         sample = (image, label)
         return sample
 
+# TODO -> safe sigmoid
 def interiorize(tensor_):
     """
     example: interiorize(torch.Tensor([0., 0.00001, 0.5, .9999, 1.]))
@@ -170,20 +173,20 @@ class MnistTrainer(object):
                 for data in self.testloader:
                     inputs_, labels_ = data
                     outputs_ = net(inputs_)
-
                     correct += topk_hot_acc(outputs_, labels_, self.testset.k_topk)
                     total += outputs_.shape[0]
-
-            print('Accuracy of the network on the {} test images: {} %'.format(
-                total, 100 * correct / total))
+            print('Accuracy of the network on the {} test images: {} %'.format(total, 100 * correct / total))
 
 
 def main():
+
+
     torch.manual_seed(0)
     transform0 = transforms.Compose([transforms.ToTensor()])
     transform1 = transforms.Lambda(lambda x: F.one_hot(torch.tensor(x), 10))
     df2labels = lambda df, lablen: F.one_hot(torch.tensor(df.apply(lambda row: row['label'], axis=1).values), lablen)
     df2labels1 = lambda df, lablen: binarize_topk(torch.tensor(df.drop(['name'], axis=1).values), 2)
+
 
     # return
 
@@ -192,34 +195,35 @@ def main():
     trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]          # GSN - cheat
 
-    # TODO
     core_base = nn.Sequential(Linear(784, 64), nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, trainset.lablen))
+    conv1 = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
+
+
     # core_base = nn.Sequential(Linear(784, 64), nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, trainset.lablen)) # jeszcze dwie warstwy sa
 
-    net_base = Net(core_base)
+    net_base = Net(core_base, conv1)
+    # net_base = Net(core_base)
+
+
     # net_base.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
-    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=20)
+    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=2)
     trainer.train()
     # torch.save(net_base.state_dict(), rf"C:\temp\output\state.pickle")
 
-    # TODO zajebanie od razu convolucyjnych (moze ten problem tego wymaga) (SLACK!!!)
-    # TODO znalezienie czegos, co ruszy
-    # TODO wyklad :)
-
+    # TODO zaimplementowac te 5 elementow
+    # TODO zrobic sobie cos, co wyciaga inputy do lossow i accuracy (by moc pozniej wydewelopowaac pozostale accuracy) warto miec wtedy wytrenowana siec
 
     a = 2
 
 """
-[1,   100] loss: 1.431
-[1,   200] loss: 0.529
-[1,   300] loss: 0.409
-[1,   400] loss: 0.364
-Accuracy of the network on the 10000 test images: 95.25 %
-[2,   100] loss: 0.288
-[2,   200] loss: 0.282
-[2,   300] loss: 0.270
-[2,   400] loss: 0.260
-Accuracy of the network on the 10000 test images: 95.82 %
+[1,    20] loss: 4.076
+[1,    40] loss: 3.814
+[1,    60] loss: 3.767
+Accuracy of the network on the 1000 test images: 6.5 %
+[2,    20] loss: 4.050
+[2,    40] loss: 3.813
+[2,    60] loss: 3.607
+Accuracy of the network on the 1000 test images: 18.0 %
 """
 if __name__ == '__main__':
     main()
