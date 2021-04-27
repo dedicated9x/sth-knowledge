@@ -6,7 +6,7 @@ from torch.nn.parameter import Parameter
 from torch.nn import init
 import torchvision
 import torchvision.transforms as transforms
-
+import functools
 import pandas as pd
 import pathlib as pl
 from torch.utils.data import Dataset
@@ -59,9 +59,6 @@ class Net(nn.Module):
         x = self.dense_first(x)
         x = self.dense_core(x)
         x = self.dense_last(x)
-        # x = interiorize(torch.sigmoid(x))
-
-        # x = interiorize(self.nonlin_outlayer(x))
         x = self.nonlin_outlayer(x)
         x = interiorize(x)
         return x
@@ -113,68 +110,73 @@ def multiindex_nll_loss(outputs, labels):
     loss = torch.mean(neg_sums)
     return loss
 
-def topk_hot_acc(outputs, labels, k):
+def topk_hot_acc(k, outputs, labels):
     outputs_bin = binarize_topk(outputs, k)
     labels_bin = binarize_topk(labels, k)
     correct = (outputs_bin == labels_bin).all(dim=1).int().sum().item()
     return correct
 
 class MnistTrainer(object):
-    def __init__(self, net, datasets, no_epoch=20):
+    def __init__(self, net, datasets, loss=None, acc=None, no_epoch=20):
         self.net = net
         self.no_epoch = no_epoch
         self.trainset, self.testset = datasets
         self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True)
-        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=10, shuffle=False)
-
+        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=4, shuffle=False)
+        self.loss = loss
+        self.accuracy = acc
 
     def train(self):
-        net = self.net
-        criterion = multiindex_nll_loss
         """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
-        # optimizer = optim.SGD(net.parameters(), lr=0.05, momentum=0.9)
-        optimizer = optim.SGD(net.parameters(), lr=0.05, momentum=0.9)
+        optimizer = optim.SGD(self.net.parameters(), lr=0.05, momentum=0.9)
 
         for epoch in range(self.no_epoch):
             running_loss = 0.0
             for i, data in enumerate(self.trainloader, 0):
-                # print(i)
                 inputs, labels = data
                 """pytorch z defaultu sumuje (!) dotychczasowe gradienty. Tym je resetujemy."""
                 optimizer.zero_grad()
-                """nn.Model.__call__() odpala .forward()"""
-                outputs = net(inputs)
-                """labels.shape -> torch.Size([128]) // outputs.shape -> torch.Size([128, 10])"""
-                """criterion(outputs[0:1], labels[0:1])"""
-                loss = criterion(outputs, labels)
-
-                """loss to torch.Tenser. Stąd (kozacka) metoda .backward()"""
+                outputs = self.net(inputs)
+                loss = self.loss(outputs, labels)
                 loss.backward()
                 """tensor (loss) liczy TYLKO 'grad'.  A przecież nam zależy na minimum (w końcu SDG)"""
                 optimizer.step()
 
-                """+= -> bo chcemy logowac troche wieksz liczby"""
+                """+= -> bo chcemy logowac troche wieksze liczby"""
                 running_loss += loss.item()
                 # if i % 20 == 19:
                 # if ((i != 0) * (i + 1)) % 100 == 1:
                 #     print('[%d, %5d] loss: %.3f' % (epoch + 1, i, running_loss / 100))
                 if ((i != 0) * (i + 1)) % self.trainset.print_period == 1:
                     print('[%d, %5d] loss: %.3f' % (epoch + 1, i, running_loss / self.trainset.print_period))
-                    # TODO powyzej dzielimy przez sto
                     running_loss = 0.0
             correct = 0
             total = 0
             with torch.no_grad():
                 for data in self.testloader:
                     inputs_, labels_ = data
-                    outputs_ = net(inputs_)
-                    correct += topk_hot_acc(outputs_, labels_, self.testset.k_topk)
+                    outputs_ = self.net(inputs_)
+                    correct += self.accuracy(outputs_, labels_)
                     total += outputs_.shape[0]
             print('Accuracy of the network on the {} test images: {} %'.format(total, 100 * correct / total))
 
+class Utils:
+    @staticmethod
+    def get_loss_inputs(trainset, net, mb_size):
+        loader = torch.utils.data.DataLoader(trainset, batch_size=mb_size, shuffle=False)
+        inputs, labels = next(loader.__iter__())
+        outputs = net(inputs)
+        return outputs, labels
+
+    @staticmethod
+    def get_acc_inputs(testset, net, mb_size):
+        return Utils.get_loss_inputs(testset, net, mb_size)
+
+
+REF = {}
 
 def main():
-
+    global REF1, REF2
 
     torch.manual_seed(0)
     transform0 = transforms.Compose([transforms.ToTensor()])
@@ -200,14 +202,16 @@ def main():
 
 
     net_base = Net(**params)
+    REF['NET'] = net_base
+    REF['SET'] = testset
 
-
+    # return
 
     # net_base.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
-    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), no_epoch=2)
+    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=multiindex_nll_loss, acc=functools.partial(topk_hot_acc, 2), no_epoch=2)
     trainer.train()
     # torch.save(net_base.state_dict(), rf"C:\temp\output\state.pickle")
-
+    # TODO jeszcze ta podmiana inplace
     # TODO dobrze rozkmnic roznice miedzy 6 60 a 135
     # TODO zrobic sobie cos, co wyciaga inputy do lossow i accuracy (by moc pozniej wydewelopowaac pozostale accuracy) warto miec wtedy wytrenowana siec
 
@@ -225,6 +229,41 @@ Accuracy of the network on the 1000 test images: 26.1 %
 """
 if __name__ == '__main__':
     main()
+
+
+
+
+"""SCRATCH"""
+
+
+# net = REF1
+# trainset = REF2
+# mb_size = 4
+
+# outputs, labels = Utils.get_loss_inputs(REF_SET, REF_NET, 4)
+outputs, labels = Utils.get_acc_inputs(REF['SET'], REF['NET'], 4)
+# loader = torch.utils.data.DataLoader(trainset, batch_size=mb_size, shuffle=False)
+# inputs, labels = next(loader.__iter__())
+# outputs = net(inputs)
+# # i, data in enumerate(self.trainloader, 0)
+
+
+
+
+
+a = 1
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
