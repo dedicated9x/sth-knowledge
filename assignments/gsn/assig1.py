@@ -44,8 +44,9 @@ class Linear(torch.nn.Module):
         return r
 
 class Net(nn.Module):
-    def __init__(self, core, conv=None):
+    def __init__(self, dense_first, core, conv=None):
         super(Net, self).__init__()
+        self.dense_first = dense_first
         self.core = core
         self.conv = conv if conv is not None else torch.nn.Identity()
 
@@ -62,11 +63,13 @@ class Net(nn.Module):
 
     """x -> inputy (wchodzą w petli SGD)"""
     def forward(self, x):
-        """.view() to .reshape() dla tensorów"""
         # TODO zrozumiec bardziej, co tu sie odpierdala
         x = self.conv(x)
-
         x = x.view(-1, 28 * 28)
+
+        # TODO here
+        x = self.dense_first(x)
+
         x = self.core(x)
         x = interiorize(torch.sigmoid(x))
         return x
@@ -195,14 +198,14 @@ def main():
     trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]          # GSN - cheat
 
-    core_base = nn.Sequential(Linear(784, 64), nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, trainset.lablen))
-    conv1 = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
+    conv_arbitrary = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
+    dhead_784_64 = Linear(784, 64)
+    dcore_arbitrary = nn.Sequential(nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, trainset.lablen))
 
 
-    # core_base = nn.Sequential(Linear(784, 64), nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, 64), nn.ReLU(), Linear(64, trainset.lablen)) # jeszcze dwie warstwy sa
 
-    net_base = Net(core_base, conv1)
-    # net_base = Net(core_base)
+    net_base = Net(dense_first=dhead_784_64, core=dcore_arbitrary, conv=conv_arbitrary)
+    # net_base = Net(dense_first=dhead_784_64, core=dcore_arbitrary)
 
 
     # net_base.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
@@ -216,24 +219,20 @@ def main():
     a = 2
 
 """
-[1,    20] loss: 4.076
-[1,    40] loss: 3.814
-[1,    60] loss: 3.767
-Accuracy of the network on the 1000 test images: 6.5 %
-[2,    20] loss: 4.050
-[2,    40] loss: 3.813
-[2,    60] loss: 3.607
-Accuracy of the network on the 1000 test images: 18.0 %
+[1,    20] loss: 4.051
+[1,    40] loss: 3.801
+[1,    60] loss: 3.784
+Accuracy of the network on the 1000 test images: 11.1 %
+[2,    20] loss: 3.606
+[2,    40] loss: 3.285
+[2,    60] loss: 2.911
+Accuracy of the network on the 1000 test images: 26.1 %
 """
 if __name__ == '__main__':
     main()
 
 
 
-i = 0
-i = 20
-i = 40
-((i != 0) * (i + 1)) % 20
 
 """problem bit depth"""
 # GSN
