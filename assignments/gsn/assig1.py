@@ -74,7 +74,7 @@ class ShapesDataset(Dataset):
         self.images = [read_image(self.img_dir.joinpath(name).__str__()) / 255 for name in img_labels['name']]
         self.labels = df2labels(img_labels, lablen)
 
-        self.transform = None
+        self.transform = transform
         self.target_transform = target_transform
         self.lablen = lablen
         self.k_topk = k_topk
@@ -160,6 +160,17 @@ class MnistTrainer(object):
                     total += outputs_.shape[0]
             print('Accuracy of the network on the {} test images: {} %'.format(total, 100 * correct / total))
 
+
+class CustomFunctional:
+    @ staticmethod
+    def loss_count_60output(outputs, labels):
+        rs = labels.repeat_interleave(10, dim=1)
+        js = torch.Tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).repeat(6)
+        # (rs - js) ** 2
+        loss = (outputs * (rs - js) ** 2).sum(dim=1).mean()
+        return loss
+
+
 class Utils:
     @staticmethod
     def get_loss_inputs(trainset, net, mb_size):
@@ -175,20 +186,26 @@ class Utils:
 
 REF = {}
 
+def func1(x):
+    a = 1
+    return x
+
 def main():
-    global REF1, REF2
-
     torch.manual_seed(0)
-    transform0 = transforms.Compose([transforms.ToTensor()])
-    transform1 = transforms.Lambda(lambda x: F.one_hot(torch.tensor(x), 10))
-    df2labels = lambda df, lablen: F.one_hot(torch.tensor(df.apply(lambda row: row['label'], axis=1).values), lablen)
-    df2labels1 = lambda df, lablen: binarize_topk(torch.tensor(df.drop(['name'], axis=1).values), 2)
-
 
     # return
 
+    """MNIST"""
+    # transform0 = transforms.Compose([transforms.ToTensor()])
+    # transform1 = transforms.Lambda(lambda x: F.one_hot(torch.tensor(x), 10))
+    # df2labels = lambda df, lablen: F.one_hot(torch.tensor(df.apply(lambda row: row['label'], axis=1).values), lablen)
     # trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; trainset.lablen = 10; testset.k_topk = 1; trainset.print_period = 100       # MNIST orig
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]; trainset.print_period = 100                                                                                  # MNIST
+
+    # TODO HERE
+    # df2labels1 = lambda df, lablen: binarize_topk(torch.tensor(df.drop(['name'], axis=1).values), 2)
+    df2labels1 = lambda df, lablen: torch.tensor(df.drop(['name'], axis=1).values)
+
     trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]          # GSN - cheat
 
@@ -197,21 +214,29 @@ def main():
     dcore_arbitrary = nn.Sequential(nn.ReLU(), Linear(64, 64), nn.ReLU())
     dlast1 = Linear(64, trainset.lablen)
 
-    params = {'dfirst': dhead_784_64, 'dcore': dcore_arbitrary, 'dlast': dlast1, 'conv': None, 'nonlin_outlayer': torch.sigmoid}
-    params['conv'] = conv_arbitrary
+    params_dense6 = {'dfirst': dhead_784_64, 'dcore': dcore_arbitrary, 'dlast': dlast1, 'conv': None, 'nonlin_outlayer': torch.sigmoid}
+    params_conv6 = dict(params_dense6, **{'conv': conv_arbitrary})
+    # params_dense60 = dict(params_dense6, **{'dlast': Linear(64, 60)})
 
+    net_base = Net(**params_conv6)
+    # net_base = Net(**params_dense60)
 
-    net_base = Net(**params)
     REF['NET'] = net_base
-    REF['SET'] = testset
+    REF['TRAINSET'] = trainset
+    REF['TESTSET'] = testset
 
     # return
+    loss_shape = lambda o, l: multiindex_nll_loss(o, binarize_topk(l, 2))
 
     # net_base.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
-    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=multiindex_nll_loss, acc=functools.partial(topk_hot_acc, 2), no_epoch=2)
+    # TODO HERE
+    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=loss_shape, acc=functools.partial(topk_hot_acc, 2), no_epoch=2)
     trainer.train()
     # torch.save(net_base.state_dict(), rf"C:\temp\output\state.pickle")
-    # TODO jeszcze ta podmiana inplace
+
+    # TODO output tez musi byc na koniec znormalizowany
+    # TODO binarize topk jako optional dla datasetu
+    # TODO robimy lossa dla 60
     # TODO dobrze rozkmnic roznice miedzy 6 60 a 135
     # TODO zrobic sobie cos, co wyciaga inputy do lossow i accuracy (by moc pozniej wydewelopowaac pozostale accuracy) warto miec wtedy wytrenowana siec
 
@@ -236,28 +261,14 @@ if __name__ == '__main__':
 """SCRATCH"""
 
 
-# net = REF1
-# trainset = REF2
-# mb_size = 4
+torch.set_printoptions(linewidth=700)
 
-# outputs, labels = Utils.get_loss_inputs(REF_SET, REF_NET, 4)
-outputs, labels = Utils.get_acc_inputs(REF['SET'], REF['NET'], 4)
-# loader = torch.utils.data.DataLoader(trainset, batch_size=mb_size, shuffle=False)
-# inputs, labels = next(loader.__iter__())
-# outputs = net(inputs)
-# # i, data in enumerate(self.trainloader, 0)
+outputs, labels = Utils.get_acc_inputs(REF['TRAINSET'], REF['NET'], 4)
 
+z = outputs[0]
 
-
-
-
-a = 1
-
-
-
-
-
-
+# TODO zrozum tego shape'a
+# TODO zrobic acc teraz (pamietaj o zmianie sigmoidu)
 
 
 
