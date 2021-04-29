@@ -44,13 +44,15 @@ class Linear(torch.nn.Module):
         return r
 
 class Net(nn.Module):
-    def __init__(self, dfirst, dcore, dlast, nonlin_outlayer, conv=None):
+    def __init__(self, dfirst, dcore, dlast, nonlin_outlayer=None, conv=None):
         super(Net, self).__init__()
         self.conv = conv if conv is not None else torch.nn.Identity()
         self.dense_first = dfirst
         self.dense_core = dcore
         self.dense_last = dlast
-        self.nonlin_outlayer = nonlin_outlayer
+        self.nonlin_outlayer = nonlin_outlayer if nonlin_outlayer is not None else torch.nn.Identity()
+
+        # self.nonlin_outlayer = nonlin_outlayer
 
     """x -> inputy (wchodzą w petli SGD)"""
     def forward(self, x):
@@ -170,6 +172,17 @@ class CustomFunctional:
         loss = (outputs * (rs - js) ** 2).sum(dim=1).mean()
         return loss
 
+    @ staticmethod
+    def acc_count_60output(outputs, labels):
+        # torch.stack(z.tensor_split(6)).argmax(dim=1)
+        outputs_ = torch.stack(outputs.split(10, dim=1)).argmax(dim=2).T
+        correct = (outputs_ == labels).all(dim=1).int().sum().item()
+        return correct
+
+    @ staticmethod
+    def _10_piecewise_softmax(outputs):
+        return torch.stack(outputs.split(10, dim=1)).softmax(dim=2).transpose(0, 1).flatten(1, 2)
+
 
 class Utils:
     @staticmethod
@@ -214,7 +227,8 @@ def main():
     dcore_arbitrary = nn.Sequential(nn.ReLU(), Linear(64, 64), nn.ReLU())
     dlast1 = Linear(64, trainset.lablen)
 
-    params_dense6 = {'dfirst': dhead_784_64, 'dcore': dcore_arbitrary, 'dlast': dlast1, 'conv': None, 'nonlin_outlayer': torch.sigmoid}
+    params_dense6 = {'dfirst': dhead_784_64, 'dcore': dcore_arbitrary, 'dlast': dlast1}
+    params_dense6 = dict(params_dense6, **{'nonlin_outlayer': torch.sigmoid})
     params_conv6 = dict(params_dense6, **{'conv': conv_arbitrary})
     # params_dense60 = dict(params_dense6, **{'dlast': Linear(64, 60)})
 
@@ -265,9 +279,11 @@ torch.set_printoptions(linewidth=700)
 
 outputs, labels = Utils.get_acc_inputs(REF['TRAINSET'], REF['NET'], 4)
 
-z = outputs[0]
 
-# TODO zrozum tego shape'a
+z = torch.stack(outputs.split(10, dim=1)).softmax(dim=2)
+z.transpose(0, 1).flatten(1, 2)
+
+# torch.stack(outputs.split(10, dim=1)).softmax(dim=2).transpose(0, 1).flatten(1, 2)
 # TODO zrobic acc teraz (pamietaj o zmianie sigmoidu)
 
 
