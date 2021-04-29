@@ -168,13 +168,11 @@ class CustomFunctional:
     def loss_count_60output(outputs, labels):
         rs = labels.repeat_interleave(10, dim=1)
         js = torch.Tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).repeat(6)
-        # (rs - js) ** 2
         loss = (outputs * (rs - js) ** 2).sum(dim=1).mean()
         return loss
 
     @ staticmethod
     def acc_count_60output(outputs, labels):
-        # torch.stack(z.tensor_split(6)).argmax(dim=1)
         outputs_ = torch.stack(outputs.split(10, dim=1)).argmax(dim=2).T
         correct = (outputs_ == labels).all(dim=1).int().sum().item()
         return correct
@@ -225,46 +223,49 @@ def main():
     conv_arbitrary = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
     dhead_784_64 = Linear(784, 64)
     dcore_arbitrary = nn.Sequential(nn.ReLU(), Linear(64, 64), nn.ReLU())
-    dlast1 = Linear(64, trainset.lablen)
+    dlast6 = Linear(64, 6)
+    dlast60 = Linear(64, 60)
 
-    params_dense6 = {'dfirst': dhead_784_64, 'dcore': dcore_arbitrary, 'dlast': dlast1}
-    params_dense6 = dict(params_dense6, **{'nonlin_outlayer': torch.sigmoid})
-    params_conv6 = dict(params_dense6, **{'conv': conv_arbitrary})
-    # params_dense60 = dict(params_dense6, **{'dlast': Linear(64, 60)})
+    CF = CustomFunctional
 
-    net_base = Net(**params_conv6)
-    # net_base = Net(**params_dense60)
+    _dense = {'dfirst': dhead_784_64, 'dcore': dcore_arbitrary}
+    _convdens = dict(_dense, **{'conv': conv_arbitrary})
+    _convdens6 = dict(_convdens, **{'dlast': dlast6, 'nonlin_outlayer': torch.sigmoid})
+    _convdens60 = dict(_convdens, **{'dlast': dlast60, 'nonlin_outlayer': CF._10_piecewise_softmax})
+
+
+    net_base = Net(**_convdens6)
+    # net_base = Net(**_convdens60)
 
     REF['NET'] = net_base
     REF['TRAINSET'] = trainset
     REF['TESTSET'] = testset
 
+    # TODO pokombinowac z batch sizem
+    # TODO odpalic ten test jeszcze raz i zrobic testy w drugim pliku
+    # TODO sprobowac wpierw rozwiazac te 135
     # return
     loss_shape = lambda o, l: multiindex_nll_loss(o, binarize_topk(l, 2))
 
     # net_base.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
-    # TODO HERE
+
     trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=loss_shape, acc=functools.partial(topk_hot_acc, 2), no_epoch=2)
+    # trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=CustomFunctional.loss_count_60output, acc=CustomFunctional.acc_count_60output, no_epoch=100)
+
     trainer.train()
     # torch.save(net_base.state_dict(), rf"C:\temp\output\state.pickle")
 
-    # TODO output tez musi byc na koniec znormalizowany
-    # TODO binarize topk jako optional dla datasetu
-    # TODO robimy lossa dla 60
-    # TODO dobrze rozkmnic roznice miedzy 6 60 a 135
-    # TODO zrobic sobie cos, co wyciaga inputy do lossow i accuracy (by moc pozniej wydewelopowaac pozostale accuracy) warto miec wtedy wytrenowana siec
 
-    a = 2
 
 """
-[1,    20] loss: 4.051
-[1,    40] loss: 3.801
-[1,    60] loss: 3.784
-Accuracy of the network on the 1000 test images: 11.1 %
-[2,    20] loss: 3.606
-[2,    40] loss: 3.285
-[2,    60] loss: 2.911
-Accuracy of the network on the 1000 test images: 26.1 %
+[1,    20] loss: 4.046
+[1,    40] loss: 3.823
+[1,    60] loss: 3.822
+Accuracy of the network on the 1000 test images: 9.5 %
+[2,    20] loss: 3.991
+[2,    40] loss: 3.806
+[2,    60] loss: 3.800
+Accuracy of the network on the 1000 test images: 6.5 %
 """
 if __name__ == '__main__':
     main()
