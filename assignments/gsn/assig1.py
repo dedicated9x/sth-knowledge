@@ -12,6 +12,7 @@ import pathlib as pl
 from torch.utils.data import Dataset
 from torchvision.io import read_image
 import sys
+import itertools
 
 
 def truncated_normal_(tensor, mean=0, std=1):
@@ -164,6 +165,8 @@ class MnistTrainer(object):
 
 
 class CustomFunctional:
+    counts2class = None # Will be calculated in external scope
+
     @ staticmethod
     def loss_count_60output(outputs, labels):
         rs = labels.repeat_interleave(10, dim=1)
@@ -180,6 +183,19 @@ class CustomFunctional:
     @ staticmethod
     def _10_piecewise_softmax(outputs):
         return torch.stack(outputs.split(10, dim=1)).softmax(dim=2).transpose(0, 1).flatten(1, 2)
+
+    @ staticmethod
+    def loss_count_135outputs(outputs, labels):
+        labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.numpy())] for e in labels])
+        loss = F.nll_loss(outputs, labels_)
+        return loss
+
+    @ staticmethod
+    def acc_135outputs(outputs, labels):
+        labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.numpy())] for e in labels])
+        outputs_ = torch.topk(outputs, 1).indices
+        correct = (outputs_ == labels_.unsqueeze(dim=1)).all(dim=1).int().sum().item()
+        return correct
 
 
 class Utils:
@@ -204,6 +220,11 @@ def func1(x):
 def main():
     torch.manual_seed(0)
 
+    pairs = [[1, 9], [2, 8], [3, 7], [4, 6], [5, 5]]
+    counts = list(set(itertools.chain(*[itertools.permutations(p + [0, 0, 0, 0]) for p in pairs])))
+    counts2class = {count: i for i, count in enumerate(counts)}
+    CustomFunctional.counts2class = counts2class
+
     # return
 
     """MNIST"""
@@ -225,31 +246,34 @@ def main():
     dcore_arbitrary = nn.Sequential(nn.ReLU(), Linear(64, 64), nn.ReLU())
     dlast6 = Linear(64, 6)
     dlast60 = Linear(64, 60)
+    dlast135 = Linear(64, 135)
 
     CF = CustomFunctional
+    outlayer_count135 = lambda outputs: torch.softmax(outputs, dim=1)
 
     _dense = {'dfirst': dhead_784_64, 'dcore': dcore_arbitrary}
     _convdens = dict(_dense, **{'conv': conv_arbitrary})
     _convdens6 = dict(_convdens, **{'dlast': dlast6, 'nonlin_outlayer': torch.sigmoid})
     _convdens60 = dict(_convdens, **{'dlast': dlast60, 'nonlin_outlayer': CF._10_piecewise_softmax})
+    _convdens135 = dict(_convdens, **{'dlast': dlast135, 'nonlin_outlayer': outlayer_count135})
 
 
     net_base = Net(**_convdens6)
     # net_base = Net(**_convdens60)
+    # net_base = Net(**_convdens135)
 
     REF['NET'] = net_base
     REF['TRAINSET'] = trainset
     REF['TESTSET'] = testset
 
-    # TODO pokombinowac z batch sizem
+    # TODO zrobic jeszcze topk=1
     # TODO odpalic ten test jeszcze raz i zrobic testy w drugim pliku
     # TODO sprobowac wpierw rozwiazac te 135
     # return
     loss_shape = lambda o, l: multiindex_nll_loss(o, binarize_topk(l, 2))
-
     # net_base.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
 
-    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=loss_shape, acc=functools.partial(topk_hot_acc, 2), no_epoch=2)
+    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=loss_shape, acc=functools.partial(topk_hot_acc, 2), no_epoch=20)
     # trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=CustomFunctional.loss_count_60output, acc=CustomFunctional.acc_count_60output, no_epoch=100)
 
     trainer.train()
@@ -258,14 +282,14 @@ def main():
 
 
 """
-[1,    20] loss: 4.046
-[1,    40] loss: 3.823
-[1,    60] loss: 3.822
-Accuracy of the network on the 1000 test images: 9.5 %
-[2,    20] loss: 3.991
-[2,    40] loss: 3.806
-[2,    60] loss: 3.800
-Accuracy of the network on the 1000 test images: 6.5 %
+[1,    20] loss: 4.047
+[1,    40] loss: 3.792
+[1,    60] loss: 3.878
+Accuracy of the network on the 1000 test images: 6.8 %
+[2,    20] loss: 4.013
+[2,    40] loss: 3.821
+[2,    60] loss: 3.813
+Accuracy of the network on the 1000 test images: 16.3 %
 """
 if __name__ == '__main__':
     main()
@@ -276,25 +300,22 @@ if __name__ == '__main__':
 """SCRATCH"""
 
 
-torch.set_printoptions(linewidth=700)
-
-outputs, labels = Utils.get_acc_inputs(REF['TRAINSET'], REF['NET'], 4)
-
-
-z = torch.stack(outputs.split(10, dim=1)).softmax(dim=2)
-z.transpose(0, 1).flatten(1, 2)
-
-# torch.stack(outputs.split(10, dim=1)).softmax(dim=2).transpose(0, 1).flatten(1, 2)
-# TODO zrobic acc teraz (pamietaj o zmianie sigmoidu)
+# torch.set_printoptions(linewidth=700)
+# outputs, labels = Utils.get_acc_inputs(REF['TRAINSET'], REF['NET'], 4)
+#
+#
+# labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.numpy())] for e in labels])
+# outputs_ = torch.topk(outputs, 1).indices
+# correct = (outputs_ == labels_.unsqueeze(dim=1)).all(dim=1).int().sum().item()
 
 
-
-
-
-
-
-
-
+# pairs = [[1, 9], [2, 8], [3, 7], [4, 6], [5, 5]]
+# counts = list(set(itertools.chain(*[itertools.permutations(p + [0, 0, 0, 0]) for p in pairs])))
+# counts2class = {count : i for i, count in enumerate(counts)}
+#
+#
+# labels_ = torch.tensor([counts2class[tuple(e.numpy())] for e in labels])
+# F.nll_loss(outputs, labels_)
 
 """problem bit depth"""
 # GSN
