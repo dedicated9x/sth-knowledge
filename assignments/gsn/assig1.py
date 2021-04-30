@@ -65,7 +65,7 @@ class ShapesDataset(Dataset):
         self.df = pd.read_csv(self.img_dir.joinpath('labels.csv'))
         if slice_ is not None:
             self.df = self.df[slice_]
-        self.images = [read_image(self.img_dir.joinpath(name).__str__())[0:1] / 255 for name in self.df['name']]
+        self.images = torch.stack([read_image(self.img_dir.joinpath(name).__str__())[0:1] / 255 for name in self.df['name']])
         self.labels = torch.tensor(self.df.drop(['name'], axis=1).values)
 
         self.transform = transform
@@ -86,19 +86,20 @@ class ShapesDataset(Dataset):
         return sample
 
 class Augmentations:
-    @staticmethod
-    def augment_label(label):
-        indices = torch.tensor([
-            [0, 1, 2, 3, 4, 5],  # base
-            [0, 1, 5, 2, 3, 4],  # 90 right
-            [0, 1, 4, 5, 2, 3],  # 180 right
-            [0, 1, 3, 4, 5, 2],  # 270 right
-            [0, 1, 2, 5, 4, 3],  # vertical flip
-            [0, 1, 3, 2, 5, 4],  # vertical flip + 90 right
-            [0, 1, 4, 3, 2, 5],  # vertical flip + 180 right
-            [0, 1, 5, 4, 3, 2],  # vertical flip + 270 right
-        ]).flatten()
-        return list(label.index_select(0, indices).split(6))
+    indices = torch.tensor([
+        [0, 1, 2, 3, 4, 5],  # base
+        [0, 1, 5, 2, 3, 4],  # 90 right
+        [0, 1, 4, 5, 2, 3],  # 180 right
+        [0, 1, 3, 4, 5, 2],  # 270 right
+        [0, 1, 2, 5, 4, 3],  # vertical flip
+        [0, 1, 3, 2, 5, 4],  # vertical flip + 90 right
+        [0, 1, 4, 3, 2, 5],  # vertical flip + 180 right
+        [0, 1, 5, 4, 3, 2],  # vertical flip + 270 right
+    ]).flatten()
+
+    @classmethod
+    def augment_label(cls, label):
+        return list(label.index_select(0, cls.indices).split(6))
 
     @staticmethod
     def augment_image(image):
@@ -260,7 +261,7 @@ def main():
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]         # GSN cheat
     REF['TRAINSET'] = trainset
     REF['TESTSET'] = testset
-    # return
+    return
 
     conv_arbitrary = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
     mnistslayer_head = nn.Sequential(Linear(784, 64), nn.ReLU())
@@ -321,6 +322,16 @@ if __name__ == '__main__':
 
 
 """SCRATCH"""
+
+
+trainset = REF['TRAINSET']
+labels_aug = torch.cat([torch.stack(Augmentations.augment_label(l)) for l in trainset.labels], dim=0)
+images_aug = torch.cat([torch.stack(Augmentations.augment_image(im)) for im in trainset.images], dim=0)
+
+
+# TODO samo self.images powinno byc tensorem - zmien to
+# TODO test, czy dziala
+# TODO przeniesienie do datasetu
 
 
 
