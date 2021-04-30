@@ -15,17 +15,9 @@ import sys
 import itertools
 
 
-def truncated_normal_(tensor, mean=0, std=1):
-    size = tensor.shape
-    tmp = tensor.new_empty(size + (4,)).normal_()
-    valid = (tmp < 2) & (tmp > -2)
-    ind = valid.max(-1, keepdim=True)[1]
-    tensor.data.copy_(tmp.gather(-1, ind).squeeze(-1))
-    tensor.data.mul_(std).add_(mean)
-
 class Linear(torch.nn.Module):
     """in_features, out_features -> <liczba> neuronów przed, <liczba> neuronów po tej warstwie."""
-    def __init__(self, in_features, out_features):
+    def __init__(self, in_features: int, out_features: int):
         super(Linear, self).__init__()
         self.weight = Parameter(torch.Tensor(out_features, in_features))
         self.bias = Parameter(torch.Tensor(out_features))
@@ -33,14 +25,11 @@ class Linear(torch.nn.Module):
 
 
     def reset_parameters(self):
-        # truncated_normal_(self.weight, std=0.5)
         init.kaiming_normal_(self.weight, mode='fan_in')
         init.zeros_(self.bias)
 
-    """x -> inputy (wchodzą w petli SGD)"""
     def forward(self, x):
-        """.t() => wyciąga z obiektu Parameter, jego obiekt bazowy Tensor (obliczenia tego wymagają)"""
-        r = x.matmul(self.weight.t())
+        r = x.matmul(self.weight.t()) # .t() => wyciąga z obiektu Parameter, jego obiekt bazowy Tensor (obliczenia tego wymagają)
         r += self.bias
         return r
 
@@ -53,9 +42,6 @@ class Net(nn.Module):
         self.dense_last = dlast
         self.nonlin_outlayer = nonlin_outlayer if nonlin_outlayer is not None else torch.nn.Identity()
 
-        # self.nonlin_outlayer = nonlin_outlayer
-
-    """x -> inputy (wchodzą w petli SGD)"""
     def forward(self, x):
         x = self.conv(x)
         x = x.view(-1, 28 * 28)
@@ -63,8 +49,12 @@ class Net(nn.Module):
         x = self.dense_core(x)
         x = self.dense_last(x)
         x = self.nonlin_outlayer(x)
-        x = interiorize(x)
+        x = self.interiorize(x)
         return x
+
+    def interiorize(self, tensor_):
+        eps = 1e-4
+        return (1 - 2 * eps) * tensor_ + eps
 
 MB_SIZE = 128
 
@@ -97,27 +87,14 @@ class ShapesDataset(Dataset):
         sample = (image, label)
         return sample
 
-# TODO -> safe sigmoid
-def interiorize(tensor_):
-    """
-    example: interiorize(torch.Tensor([0., 0.00001, 0.5, .9999, 1.]))
-    """
-    eps = 1e-4
-    return (1 - 2 * eps) * tensor_ + eps
 
-def binarize_topk(batch, k):
-    return F.one_hot(torch.topk(batch, k).indices, batch.shape[1]).sum(dim=1)
+# def interiorize(tensor_):
+#     eps = 1e-4
+#     return (1 - 2 * eps) * tensor_ + eps
+#
+# def binarize_topk(batch, k):
+#     return F.one_hot(torch.topk(batch, k).indices, batch.shape[1]).sum(dim=1)
 
-def multiindex_nll_loss(outputs, labels):
-    neg_sums = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
-    loss = torch.mean(neg_sums)
-    return loss
-
-def topk_hot_acc(k, outputs, labels):
-    outputs_bin = binarize_topk(outputs, k)
-    labels_bin = binarize_topk(labels, k)
-    correct = (outputs_bin == labels_bin).all(dim=1).int().sum().item()
-    return correct
 
 class MnistTrainer(object):
     def __init__(self, net, datasets, loss=None, acc=None, no_epoch=20):
@@ -147,9 +124,6 @@ class MnistTrainer(object):
 
                 """+= -> bo chcemy logowac troche wieksze liczby"""
                 running_loss += loss.item()
-                # if i % 20 == 19:
-                # if ((i != 0) * (i + 1)) % 100 == 1:
-                #     print('[%d, %5d] loss: %.3f' % (epoch + 1, i, running_loss / 100))
                 if ((i != 0) * (i + 1)) % self.trainset.print_period == 1:
                     print('[%d, %5d] loss: %.3f' % (epoch + 1, i, running_loss / self.trainset.print_period))
                     running_loss = 0.0
@@ -166,6 +140,35 @@ class MnistTrainer(object):
 
 class CustomFunctional:
     counts2class = None # Will be calculated in external scope
+
+    @classmethod
+    def init(cls):
+        pairs = [[1, 9], [2, 8], [3, 7], [4, 6], [5, 5]]
+        counts = list(set(itertools.chain(*[itertools.permutations(p + [0, 0, 0, 0]) for p in pairs])))
+        cls.counts2class = {count: i for i, count in enumerate(counts)}
+
+    @staticmethod
+    def binarize_topk(batch, k):
+        return F.one_hot(torch.topk(batch, k).indices, batch.shape[1]).sum(dim=1)
+
+    @ staticmethod
+    def cmpr_bin(outputs, labels):
+        """outputs & labels MUST be binary"""
+        no_correct = (outputs == labels).all(dim=1).int().sum().item()
+        return no_correct
+
+    @classmethod
+    def acc_topk_hot(cls, k, outputs, labels):
+        outputs_bin = cls.binarize_topk(outputs, k)
+        labels_bin = cls.binarize_topk(labels, k)
+        no_correct = cls.cmpr_bin(outputs_bin, labels_bin)
+        return no_correct
+
+    @staticmethod
+    def loss_nll(outputs, labels):
+        neg_sums = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
+        loss = torch.mean(neg_sums)
+        return loss
 
     @ staticmethod
     def loss_count_60output(outputs, labels):
@@ -184,19 +187,31 @@ class CustomFunctional:
     def _10_piecewise_softmax(outputs):
         return torch.stack(outputs.split(10, dim=1)).softmax(dim=2).transpose(0, 1).flatten(1, 2)
 
-    @ staticmethod
-    def loss_count_135outputs(outputs, labels):
-        labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.numpy())] for e in labels])
-        # loss = F.nll_loss(outputs, labels_)
-        loss = multiindex_nll_loss(outputs, F.one_hot(labels_, 135))
+    @ classmethod
+    def loss_classify(cls, outputs, labels):
+        # TODO binarize topk_tutaj wloz
+        labels_ = cls.binarize_topk(labels, 2)
+        loss = cls.loss_nll(outputs, labels_)
         return loss
 
+    @ classmethod
+    def acc_classify(cls, outputs, labels):
+        no_correct = cls.acc_topk_hot(2, outputs, labels)
+        return no_correct
+
+
     @ staticmethod
-    def acc_135outputs(outputs, labels):
+    def loss_count135(outputs, labels):
+        labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.numpy())] for e in labels])
+        loss = CustomFunctional.loss_nll(outputs, F.one_hot(labels_, 135))
+        return loss
+
+    @ classmethod
+    def acc_count135(cls, outputs, labels):
         labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.numpy())] for e in labels])
         outputs_ = torch.topk(outputs, 1).indices
-        correct = (outputs_ == labels_.unsqueeze(dim=1)).all(dim=1).int().sum().item()
-        return correct
+        no_correct = cls.cmpr_bin(outputs_, labels_.unsqueeze(dim=1))
+        return no_correct
 
 
 class Utils:
@@ -220,30 +235,20 @@ def func1(x):
 
 def main():
     torch.manual_seed(0)
-
-    pairs = [[1, 9], [2, 8], [3, 7], [4, 6], [5, 5]]
-    counts = list(set(itertools.chain(*[itertools.permutations(p + [0, 0, 0, 0]) for p in pairs])))
-    counts2class = {count: i for i, count in enumerate(counts)}
-    CustomFunctional.counts2class = counts2class
+    CustomFunctional.init()
 
     # return
 
-    """MNIST"""
-    # transform0 = transforms.Compose([transforms.ToTensor()])
-    # transform1 = transforms.Lambda(lambda x: F.one_hot(torch.tensor(x), 10))
-    # df2labels = lambda df, lablen: F.one_hot(torch.tensor(df.apply(lambda row: row['label'], axis=1).values), lablen)
-    # trainset, testset = [torchvision.datasets.MNIST(root=rf"C:\Datasets", download=True, train=b, transform=transform0, target_transform=transform1) for b in [True, False]]; trainset.lablen = 10; testset.k_topk = 1; trainset.print_period = 100       # MNIST orig
-    # trainset, testset = [ShapesDataset(rf"C:\Datasets\mnist_", df2labels, 10, 1, slice_=s) for s in [slice(0, 60000), slice(60000, 70000)]]; trainset.print_period = 100                                                                                  # MNIST
-
-    # TODO HERE
-    # df2labels1 = lambda df, lablen: binarize_topk(torch.tensor(df.drop(['name'], axis=1).values), 2)
+    # TODO gdzies to pocisnac to do datasetu
     df2labels1 = lambda df, lablen: torch.tensor(df.drop(['name'], axis=1).values)
 
     trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]          # GSN - cheat
 
     conv_arbitrary = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
+    # TODO powinno dostac relu
     dhead_784_64 = Linear(784, 64)
+    # TODO mnist slayer
     dcore_arbitrary = nn.Sequential(nn.ReLU(), Linear(64, 64), nn.ReLU())
     dlast6 = Linear(64, 6)
     dlast60 = Linear(64, 60)
@@ -267,22 +272,20 @@ def main():
     REF['TRAINSET'] = trainset
     REF['TESTSET'] = testset
 
-    # TODO dotrenuj net base 6
-    # TODO refactor 6 i 135
     # TODO testy tego 60
     # TODO augmentacja
     # return
-    loss_shape = lambda o, l: multiindex_nll_loss(o, binarize_topk(l, 2))
 
     net_base6.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
 
-    trainer = MnistTrainer(net=net_base6, datasets=(trainset, testset), loss=loss_shape, acc=functools.partial(topk_hot_acc, 2), no_epoch=1)
+    trainer = MnistTrainer(net=net_base6, datasets=(trainset, testset), loss=CF.loss_classify, acc=CF.acc_classify, no_epoch=1)
     trainer.train()
 
     # trainer = MnistTrainer(net=net_base60, datasets=(trainset, testset), loss=CustomFunctional.loss_count_60output, acc=CustomFunctional.acc_count_60output, no_epoch=2)
     # trainer.train()
 
-    trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count_135outputs, acc=CustomFunctional.acc_135outputs, no_epoch=2)
+    # TODO skroty
+    trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acc_count135, no_epoch=2)
     trainer.train()
 
     # torch.save(net_base6.state_dict(), rf"C:\temp\output\state.pickle")
@@ -380,7 +383,7 @@ if __name__ == '__main__':
 #
 # labels1 = F.one_hot(labels, 10) # torch.Size([2, 10])
 # outputs1 = 0.9999 * torch.sigmoid(outputs)
-# multiindex_nll_loss(outputs1, labels1)
+# loss_nll(outputs1, labels1)
 #
 # outputs = outputs1
 # labels = labels1
