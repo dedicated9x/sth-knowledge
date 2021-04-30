@@ -1,8 +1,6 @@
-import torch
+from assignments.gsn.assig1 import CustomFunctional, ShapesDataset, Augmentations
 import pandas as pd
-from assignments.gsn.assig1 import CustomFunctional
-# TODO zrobic go 2, 60 (z przedzialu -3, 3)
-# torch.Size([128, 60])
+import torch
 
 """60_sigmoid"""
 # preoutputs = 3 * (torch.rand(2, 60) - 0.5)
@@ -18,5 +16,15 @@ from assignments.gsn.assig1 import CustomFunctional
 # print(outputs[0][0:10].sum().item(), outputs[0][10:20].sum().item())
 
 
-"""60_loss"""
-
+"""augmentations"""
+# trainset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice_=slice(0, 90))
+#
+# _images = Augmentations.augment_image(trainset.images[9])
+# _labels = Augmentations.augment_label(trainset.labels[9])
+# LIMIT = len(_images)
+#
+# import matplotlib.pyplot as plt
+# fig, ax = plt.subplots(2, 4)
+# for _img, _lab, _ax in zip(_images, _labels[:LIMIT], ax.flatten()[:LIMIT]):
+#     _ax.imshow(_img[0, :, :].numpy())
+#     _ax.set_xlabel(str(_lab))

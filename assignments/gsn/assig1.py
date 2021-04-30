@@ -102,16 +102,16 @@ class Augmentations:
 
     @staticmethod
     def augment_image(image):
-        image_hor_flip = image.flip(2)
+        image_vert_flip = image.flip(2)
         images = [
-            image,  # base
-            image.rot90(3, [1, 2]),  # 90 right
-            image.rot90(2, [1, 2]),  # 180 right
-            image.rot90(1, [1, 2]),  # 270 right
-            image_hor_flip,  # vertical flip
-            image_hor_flip.rot90(3, [1, 2]),  # vertical flip + 90 right
-            image_hor_flip.rot90(2, [1, 2]),  # vertical flip + 180 right
-            image_hor_flip.rot90(1, [1, 2])  # vertical flip + 270 right
+            image,                              # base
+            image.rot90(3, [1, 2]),             # 90 right
+            image.rot90(2, [1, 2]),             # 180 right
+            image.rot90(1, [1, 2]),             # 270 right
+            image_vert_flip,                    # vertical flip
+            image_vert_flip.rot90(3, [1, 2]),   # vertical flip + 90 right
+            image_vert_flip.rot90(2, [1, 2]),   # vertical flip + 180 right
+            image_vert_flip.rot90(1, [1, 2])    # vertical flip + 270 right
         ]
         return images
 
@@ -323,21 +323,9 @@ if __name__ == '__main__':
 """SCRATCH"""
 
 
-# trainset = REF['TRAINSET']
-#
-# _images = Augmentations.augment_image(trainset.images[9])
-# _labels = Augmentations.augment_label(trainset.labels[9])
-# LIMIT = len(_images)
-#
-# import matplotlib.pyplot as plt
-# fig, ax = plt.subplots(2, 4)
-# for _img, _lab, _ax in zip(_images, _labels[:LIMIT], ax.flatten()[:LIMIT]):
-#     _ax.imshow(_img[0, :, :].numpy())
-#     _ax.set_xlabel(str(_lab))
 
 
-# TODO wczytanie datastu powinno byc wymagac mniej argumentow
-# TODO zrobic test na drugiej stronie
+
 
 
 
