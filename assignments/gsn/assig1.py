@@ -187,7 +187,8 @@ class CustomFunctional:
     @ staticmethod
     def loss_count_135outputs(outputs, labels):
         labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.numpy())] for e in labels])
-        loss = F.nll_loss(outputs, labels_)
+        # loss = F.nll_loss(outputs, labels_)
+        loss = multiindex_nll_loss(outputs, F.one_hot(labels_, 135))
         return loss
 
     @ staticmethod
@@ -260,21 +261,21 @@ def main():
 
     net_base = Net(**_convdens6)
     # net_base = Net(**_convdens60)
-    # net_base = Net(**_convdens135)
+    net_base = Net(**_convdens135)
 
     REF['NET'] = net_base
     REF['TRAINSET'] = trainset
     REF['TESTSET'] = testset
 
-    # TODO zrobic jeszcze topk=1
-    # TODO odpalic ten test jeszcze raz i zrobic testy w drugim pliku
-    # TODO sprobowac wpierw rozwiazac te 135
+    # TODO refactor 6 i 135
+    # TODO
     # return
     loss_shape = lambda o, l: multiindex_nll_loss(o, binarize_topk(l, 2))
     # net_base.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
 
-    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=loss_shape, acc=functools.partial(topk_hot_acc, 2), no_epoch=20)
+    # trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=loss_shape, acc=functools.partial(topk_hot_acc, 2), no_epoch=20)
     # trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=CustomFunctional.loss_count_60output, acc=CustomFunctional.acc_count_60output, no_epoch=100)
+    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=CustomFunctional.loss_count_135outputs, acc=CustomFunctional.acc_135outputs, no_epoch=15)
 
     trainer.train()
     # torch.save(net_base.state_dict(), rf"C:\temp\output\state.pickle")
