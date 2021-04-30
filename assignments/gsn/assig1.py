@@ -60,13 +60,17 @@ class Net(nn.Module):
 MB_SIZE = 128
 
 class ShapesDataset(Dataset):
-    def __init__(self, root, slice_=None, transform=None, target_transform=None):
+    def __init__(self, root, slice_=None, augmented=False, transform=None, target_transform=None):
         self.img_dir = pl.Path(root).joinpath('data')
         self.df = pd.read_csv(self.img_dir.joinpath('labels.csv'))
         if slice_ is not None:
             self.df = self.df[slice_]
         self.images = torch.stack([read_image(self.img_dir.joinpath(name).__str__())[0:1] / 255 for name in self.df['name']])
         self.labels = torch.tensor(self.df.drop(['name'], axis=1).values)
+
+        if augmented:
+            self.labels = torch.cat([torch.stack(Augmentations.augment_label(l)) for l in self.labels], dim=0)
+            self.images = torch.cat([torch.stack(Augmentations.augment_image(im)) for im in self.images], dim=0)
 
         self.transform = transform
         self.target_transform = target_transform
@@ -257,11 +261,13 @@ def main():
     CustomFunctional.init()
     # return
 
-    trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
-    # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]         # GSN cheat
+    trainset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(0, 9000))
+    # trainset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(0, 9000), augmented=True)
+    testset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(9000, 10000))
+
     REF['TRAINSET'] = trainset
     REF['TESTSET'] = testset
-    return
+    # return
 
     conv_arbitrary = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
     mnistslayer_head = nn.Sequential(Linear(784, 64), nn.ReLU())
@@ -288,21 +294,21 @@ def main():
     # return
 
 
-    # TODO augmentacja
+    # TODO testy przy augmentacji - implementacja
+
+    # TODO confussion matrix
     # TODO testy tego 60
 
-    # net_base6.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
+    # net_base135.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
 
     trainer = MnistTrainer(net=net_base6, datasets=(trainset, testset), loss=CF.loss_classify, acc=CF.acc_classify, no_epoch=2)
     trainer.train()
-
     # trainer = MnistTrainer(net=net_base60, datasets=(trainset, testset), loss=CustomFunctional.loss_count_60output, acc=CustomFunctional.acc_count_60output, no_epoch=2)
     # trainer.train()
-
     # trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acc_count135, no_epoch=2)
     # trainer.train()
 
-    # torch.save(net_base6.state_dict(), rf"C:\temp\output\state.pickle")
+    # torch.save(net_base135.state_dict(), rf"C:\temp\output\state2.pickle")
 
 
 """ 
@@ -324,17 +330,25 @@ if __name__ == '__main__':
 """SCRATCH"""
 
 
-trainset = REF['TRAINSET']
-labels_aug = torch.cat([torch.stack(Augmentations.augment_label(l)) for l in trainset.labels], dim=0)
-images_aug = torch.cat([torch.stack(Augmentations.augment_image(im)) for im in trainset.images], dim=0)
-
-
-# TODO samo self.images powinno byc tensorem - zmien to
-# TODO test, czy dziala
-# TODO przeniesienie do datasetu
+# trainset = REF['TRAINSET']
+# labels_aug = torch.cat([torch.stack(Augmentations.augment_label(l)) for l in trainset.labels], dim=0)
+# images_aug = torch.cat([torch.stack(Augmentations.augment_image(im)) for im in trainset.images], dim=0)
+#
 
 
 
+
+"""test augmentacji na calym datasecie"""
+# choice = torch.tensor([12, 43, 854, 23, 504, 203, 205, 289])
+# _images = images_aug.index_select(0, choice)
+# _labels = labels_aug.index_select(0, choice)
+# LIMIT = len(_images)
+#
+# import matplotlib.pyplot as plt
+# fig, ax = plt.subplots(2, 4)
+# for _img, _lab, _ax in zip(_images, _labels[:LIMIT], ax.flatten()[:LIMIT]):
+#     _ax.imshow(_img[0, :, :].numpy())
+#     _ax.set_xlabel(str(_lab))
 
 
 
