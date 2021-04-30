@@ -64,7 +64,7 @@ class ShapesDataset(Dataset):
         img_labels = pd.read_csv(self.img_dir.joinpath('labels.csv'))
         if slice_ is not None:
             img_labels = img_labels[slice_]
-        self.images = [read_image(self.img_dir.joinpath(name).__str__()) / 255 for name in img_labels['name']]
+        self.images = [read_image(self.img_dir.joinpath(name).__str__())[0:1] / 255 for name in img_labels['name']]
         self.labels = df2labels(img_labels, lablen)
 
         self.transform = transform
@@ -77,7 +77,8 @@ class ShapesDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        image = self.images[idx][0:1]
+        # image = self.images[idx][0:1]
+        image = self.images[idx]
         label = self.labels[idx]
 
         if self.transform:
@@ -87,6 +88,35 @@ class ShapesDataset(Dataset):
         sample = (image, label)
         return sample
 
+class Augmentations:
+    @staticmethod
+    def augment_label(label):
+        indices = torch.tensor([
+            [0, 1, 2, 3, 4, 5],  # base
+            [0, 1, 5, 2, 3, 4],  # 90 right
+            [0, 1, 4, 5, 2, 3],  # 180 right
+            [0, 1, 3, 4, 5, 2],  # 270 right
+            [0, 1, 2, 5, 4, 3],  # vertical flip
+            [0, 1, 3, 2, 5, 4],  # vertical flip + 90 right
+            [0, 1, 4, 3, 2, 5],  # vertical flip + 180 right
+            [0, 1, 5, 4, 3, 2],  # vertical flip + 270 right
+        ]).flatten()
+        return list(label.index_select(0, indices).split(6))
+
+    @staticmethod
+    def augment_image(image):
+        image_hor_flip = image.flip(2)
+        images = [
+            image,  # base
+            image.rot90(3, [1, 2]),  # 90 right
+            image.rot90(2, [1, 2]),  # 180 right
+            image.rot90(1, [1, 2]),  # 270 right
+            image_hor_flip,  # vertical flip
+            image_hor_flip.rot90(3, [1, 2]),  # vertical flip + 90 right
+            image_hor_flip.rot90(2, [1, 2]),  # vertical flip + 180 right
+            image_hor_flip.rot90(1, [1, 2])  # vertical flip + 270 right
+        ]
+        return images
 
 class MnistTrainer(object):
     def __init__(self, net, datasets, loss=None, acc=None, no_epoch=20):
@@ -236,6 +266,12 @@ def main():
     trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]          # GSN - cheat
 
+
+    REF['TRAINSET'] = trainset
+    REF['TESTSET'] = testset
+    return
+
+
     conv_arbitrary = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
     mnistslayer_head = nn.Sequential(Linear(784, 64), nn.ReLU())
     mnistslayer_body = nn.Sequential(Linear(64, 64), nn.ReLU())
@@ -258,14 +294,11 @@ def main():
     net_base135 = Net(**_convdens135)
 
     REF['NET'] = net_base135
-    REF['TRAINSET'] = trainset
-    REF['TESTSET'] = testset
+    # return
 
-    # TODO ROZKMINA ILE TEGO JEST
 
     # TODO augmentacja
     # TODO testy tego 60
-    # return
 
     # net_base6.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
 
@@ -299,10 +332,72 @@ if __name__ == '__main__':
 
 """SCRATCH"""
 
+# def augment_label(label):
+#     indices = torch.tensor([
+#         [0, 1, 2, 3, 4, 5],  # base
+#         [0, 1, 5, 2, 3, 4],  # 90 right
+#         [0, 1, 4, 5, 2, 3],  # 180 right
+#         [0, 1, 3, 4, 5, 2],  # 270 right
+#         [0, 1, 2, 5, 4, 3],  # vertical flip
+#         [0, 1, 3, 2, 5, 4],  # vertical flip + 90 right
+#         [0, 1, 4, 3, 2, 5],  # vertical flip + 180 right
+#         [0, 1, 5, 4, 3, 2],  # vertical flip + 270 right
+#     ]).flatten()
+#     return list(label.index_select(0, indices).split(6))
+#
+# def augment_image(image):
+#     image_hor_flip = image.flip(2)
+#     images = [
+#         image,  # base
+#         image.rot90(3, [1, 2]),  # 90 right
+#         image.rot90(2, [1, 2]),  # 180 right
+#         image.rot90(1, [1, 2]),  # 270 right
+#         image_hor_flip,  # vertical flip
+#         image_hor_flip.rot90(3, [1, 2]),  # vertical flip + 90 right
+#         image_hor_flip.rot90(2, [1, 2]),  # vertical flip + 180 right
+#         image_hor_flip.rot90(1, [1, 2])  # vertical flip + 270 right
+#     ]
+#     return images
 
+
+# TODO zrobic klase
 trainset = REF['TRAINSET']
 
-# TODO wyplotowanie jednego obrazka
+
+_images = Augmentations.augment_image(trainset.images[9])
+_labels = Augmentations.augment_label(trainset.labels[9])
+LIMIT = len(_images)
+
+
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots(2, 4)
+for _img, _lab, _ax in zip(_images, _labels[:LIMIT], ax.flatten()[:LIMIT]):
+    _ax.imshow(_img[0, :, :].numpy())
+    _ax.set_xlabel(str(_lab))
+
+
+# TODO wczytanie datastu powinno byc wymagac mniej argumentow
+# TODO zrobic test na drugiej stronie
+
+
+# TODO niech plotuje liste [z góry załóżmy, że 8]
+# TODO obrot w prawo
+
+
+# TODO https://www.youtube.com/watch?v=IN_gzJjNbtw
+# x = torch.tensor([1, 2, 3, 4, 5, 6])
+# z1 = x.index_select(0, torch.tensor([
+#     [0, 1, 2, 3, 4, 5],     # base
+#     [0, 1, 5, 2, 3, 4],     # 90 right
+#     [0, 1, 4, 5, 2, 3],     # 180 right
+#     [0, 1, 3, 4, 5, 2],     # 270 right
+#     [0, 1, 4, 3, 2, 5],     # horizontal flip
+#     [0, 1, 5, 4, 3, 2],     # horizontal flip + 90 right
+#     [0, 1, 2, 5, 4, 3],     # horizontal flip + 180 right
+#     [0, 1, 3, 2, 5, 4],     # horizontal flip + 270 right
+# ]).flatten()).split(6)
+
+
 
 
 
