@@ -259,27 +259,49 @@ def main():
     _convdens135 = dict(_convdens, **{'dlast': dlast135, 'nonlin_outlayer': outlayer_count135})
 
 
-    net_base = Net(**_convdens6)
-    # net_base = Net(**_convdens60)
-    net_base = Net(**_convdens135)
+    net_base6 = Net(**_convdens6)
+    net_base60 = Net(**_convdens60)
+    net_base135 = Net(**_convdens135)
 
-    REF['NET'] = net_base
+    REF['NET'] = net_base135
     REF['TRAINSET'] = trainset
     REF['TESTSET'] = testset
 
+    # TODO dotrenuj net base 6
     # TODO refactor 6 i 135
-    # TODO
+    # TODO testy tego 60
+    # TODO augmentacja
     # return
     loss_shape = lambda o, l: multiindex_nll_loss(o, binarize_topk(l, 2))
-    # net_base.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
 
-    # trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=loss_shape, acc=functools.partial(topk_hot_acc, 2), no_epoch=20)
-    # trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=CustomFunctional.loss_count_60output, acc=CustomFunctional.acc_count_60output, no_epoch=100)
-    trainer = MnistTrainer(net=net_base, datasets=(trainset, testset), loss=CustomFunctional.loss_count_135outputs, acc=CustomFunctional.acc_135outputs, no_epoch=15)
+    net_base6.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
 
+    trainer = MnistTrainer(net=net_base6, datasets=(trainset, testset), loss=loss_shape, acc=functools.partial(topk_hot_acc, 2), no_epoch=1)
     trainer.train()
-    # torch.save(net_base.state_dict(), rf"C:\temp\output\state.pickle")
 
+    # trainer = MnistTrainer(net=net_base60, datasets=(trainset, testset), loss=CustomFunctional.loss_count_60output, acc=CustomFunctional.acc_count_60output, no_epoch=2)
+    # trainer.train()
+
+    trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count_135outputs, acc=CustomFunctional.acc_135outputs, no_epoch=2)
+    trainer.train()
+
+    # torch.save(net_base6.state_dict(), rf"C:\temp\output\state.pickle")
+
+
+""" dwie naraz
+[1,    20] loss: 0.158
+[1,    40] loss: 0.164
+[1,    60] loss: 0.202
+Accuracy of the network on the 1000 test images: 82.9 %
+[1,    20] loss: 6.733
+[1,    40] loss: 5.618
+[1,    60] loss: 4.965
+Accuracy of the network on the 1000 test images: 13.5 %
+[2,    20] loss: 3.815
+[2,    40] loss: 3.256
+[2,    60] loss: 3.062
+Accuracy of the network on the 1000 test images: 23.7 %
+"""
 
 
 """
