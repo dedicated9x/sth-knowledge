@@ -88,14 +88,6 @@ class ShapesDataset(Dataset):
         return sample
 
 
-# def interiorize(tensor_):
-#     eps = 1e-4
-#     return (1 - 2 * eps) * tensor_ + eps
-#
-# def binarize_topk(batch, k):
-#     return F.one_hot(torch.topk(batch, k).indices, batch.shape[1]).sum(dim=1)
-
-
 class MnistTrainer(object):
     def __init__(self, net, datasets, loss=None, acc=None, no_epoch=20):
         self.net = net
@@ -239,17 +231,14 @@ def main():
 
     # return
 
-    # TODO gdzies to pocisnac to do datasetu
     df2labels1 = lambda df, lablen: torch.tensor(df.drop(['name'], axis=1).values)
 
     trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
     # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]          # GSN - cheat
 
     conv_arbitrary = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
-    # TODO powinno dostac relu
-    dhead_784_64 = Linear(784, 64)
-    # TODO mnist slayer
-    dcore_arbitrary = nn.Sequential(nn.ReLU(), Linear(64, 64), nn.ReLU())
+    mnistslayer_head = nn.Sequential(Linear(784, 64), nn.ReLU())
+    mnistslayer_body = nn.Sequential(Linear(64, 64), nn.ReLU())
     dlast6 = Linear(64, 6)
     dlast60 = Linear(64, 60)
     dlast135 = Linear(64, 135)
@@ -257,7 +246,7 @@ def main():
     CF = CustomFunctional
     outlayer_count135 = lambda outputs: torch.softmax(outputs, dim=1)
 
-    _dense = {'dfirst': dhead_784_64, 'dcore': dcore_arbitrary}
+    _dense = {'dfirst': mnistslayer_head, 'dcore': mnistslayer_body}
     _convdens = dict(_dense, **{'conv': conv_arbitrary})
     _convdens6 = dict(_convdens, **{'dlast': dlast6, 'nonlin_outlayer': torch.sigmoid})
     _convdens60 = dict(_convdens, **{'dlast': dlast60, 'nonlin_outlayer': CF._10_piecewise_softmax})
@@ -272,42 +261,27 @@ def main():
     REF['TRAINSET'] = trainset
     REF['TESTSET'] = testset
 
-    # TODO testy tego 60
+    # TODO ROZKMINA ILE TEGO JEST
+
     # TODO augmentacja
+    # TODO testy tego 60
     # return
 
-    net_base6.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
+    # net_base6.load_state_dict(torch.load(rf"C:\temp\output\state.pickle"))
 
-    trainer = MnistTrainer(net=net_base6, datasets=(trainset, testset), loss=CF.loss_classify, acc=CF.acc_classify, no_epoch=1)
+    trainer = MnistTrainer(net=net_base6, datasets=(trainset, testset), loss=CF.loss_classify, acc=CF.acc_classify, no_epoch=2)
     trainer.train()
 
     # trainer = MnistTrainer(net=net_base60, datasets=(trainset, testset), loss=CustomFunctional.loss_count_60output, acc=CustomFunctional.acc_count_60output, no_epoch=2)
     # trainer.train()
 
-    # TODO skroty
-    trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acc_count135, no_epoch=2)
-    trainer.train()
+    # trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acc_count135, no_epoch=2)
+    # trainer.train()
 
     # torch.save(net_base6.state_dict(), rf"C:\temp\output\state.pickle")
 
 
-""" dwie naraz
-[1,    20] loss: 0.158
-[1,    40] loss: 0.164
-[1,    60] loss: 0.202
-Accuracy of the network on the 1000 test images: 82.9 %
-[1,    20] loss: 6.733
-[1,    40] loss: 5.618
-[1,    60] loss: 4.965
-Accuracy of the network on the 1000 test images: 13.5 %
-[2,    20] loss: 3.815
-[2,    40] loss: 3.256
-[2,    60] loss: 3.062
-Accuracy of the network on the 1000 test images: 23.7 %
-"""
-
-
-"""
+""" 
 [1,    20] loss: 4.047
 [1,    40] loss: 3.792
 [1,    60] loss: 3.878
@@ -326,33 +300,15 @@ if __name__ == '__main__':
 """SCRATCH"""
 
 
+trainset = REF['TRAINSET']
+
+# TODO wyplotowanie jednego obrazka
+
+
+
+"""tworzenie funkcji"""
 # torch.set_printoptions(linewidth=700)
 # outputs, labels = Utils.get_acc_inputs(REF['TRAINSET'], REF['NET'], 4)
-#
-#
-# labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.numpy())] for e in labels])
-# outputs_ = torch.topk(outputs, 1).indices
-# correct = (outputs_ == labels_.unsqueeze(dim=1)).all(dim=1).int().sum().item()
-
-
-# pairs = [[1, 9], [2, 8], [3, 7], [4, 6], [5, 5]]
-# counts = list(set(itertools.chain(*[itertools.permutations(p + [0, 0, 0, 0]) for p in pairs])))
-# counts2class = {count : i for i, count in enumerate(counts)}
-#
-#
-# labels_ = torch.tensor([counts2class[tuple(e.numpy())] for e in labels])
-# F.nll_loss(outputs, labels_)
-
-"""problem bit depth"""
-# GSN
-# torch.Size([128, 4, 28, 28])
-# torch.Size([512, 6])
-# torch.Size([128, 6])
-
-# MNIST
-# torch.Size([128, 1, 28, 28])
-# torch.Size([128, 10])
-# torch.Size([128, 10])
 
 
 """df2labels"""
