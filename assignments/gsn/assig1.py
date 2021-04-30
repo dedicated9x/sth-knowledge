@@ -56,28 +56,25 @@ class Net(nn.Module):
         eps = 1e-4
         return (1 - 2 * eps) * tensor_ + eps
 
+# TODO on tez do wyjebki
 MB_SIZE = 128
 
 class ShapesDataset(Dataset):
-    def __init__(self, root, df2labels, lablen, k_topk, transform=None, target_transform=None, slice_=None, print_period=20):
+    def __init__(self, root, slice_=None, transform=None, target_transform=None):
         self.img_dir = pl.Path(root).joinpath('data')
-        img_labels = pd.read_csv(self.img_dir.joinpath('labels.csv'))
+        self.df = pd.read_csv(self.img_dir.joinpath('labels.csv'))
         if slice_ is not None:
-            img_labels = img_labels[slice_]
-        self.images = [read_image(self.img_dir.joinpath(name).__str__())[0:1] / 255 for name in img_labels['name']]
-        self.labels = df2labels(img_labels, lablen)
+            self.df = self.df[slice_]
+        self.images = [read_image(self.img_dir.joinpath(name).__str__())[0:1] / 255 for name in self.df['name']]
+        self.labels = torch.tensor(self.df.drop(['name'], axis=1).values)
 
         self.transform = transform
         self.target_transform = target_transform
-        self.lablen = lablen
-        self.k_topk = k_topk
-        self.print_period = print_period
 
     def __len__(self):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        # image = self.images[idx][0:1]
         image = self.images[idx]
         label = self.labels[idx]
 
@@ -127,6 +124,7 @@ class MnistTrainer(object):
         self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=4, shuffle=False)
         self.loss = loss
         self.accuracy = acc
+        self.print_period = 20
 
     def train(self):
         """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
@@ -146,8 +144,9 @@ class MnistTrainer(object):
 
                 """+= -> bo chcemy logowac troche wieksze liczby"""
                 running_loss += loss.item()
-                if ((i != 0) * (i + 1)) % self.trainset.print_period == 1:
-                    print('[%d, %5d] loss: %.3f' % (epoch + 1, i, running_loss / self.trainset.print_period))
+                # TODO to powinien byc NIE-PARAMETR dla trainera
+                if ((i != 0) * (i + 1)) % self.print_period == 1:
+                    print('[%d, %5d] loss: %.3f' % (epoch + 1, i, running_loss / self.print_period))
                     running_loss = 0.0
             correct = 0
             total = 0
@@ -158,7 +157,6 @@ class MnistTrainer(object):
                     correct += self.accuracy(outputs_, labels_)
                     total += outputs_.shape[0]
             print('Accuracy of the network on the {} test images: {} %'.format(total, 100 * correct / total))
-
 
 class CustomFunctional:
     counts2class = None # Will be calculated in external scope
@@ -235,7 +233,6 @@ class CustomFunctional:
         no_correct = cls.cmpr_bin(outputs_, labels_.unsqueeze(dim=1))
         return no_correct
 
-
 class Utils:
     @staticmethod
     def get_loss_inputs(trainset, net, mb_size):
@@ -248,7 +245,6 @@ class Utils:
     def get_acc_inputs(testset, net, mb_size):
         return Utils.get_loss_inputs(testset, net, mb_size)
 
-
 REF = {}
 
 def func1(x):
@@ -258,19 +254,13 @@ def func1(x):
 def main():
     torch.manual_seed(0)
     CustomFunctional.init()
-
     # return
 
-    df2labels1 = lambda df, lablen: torch.tensor(df.drop(['name'], axis=1).values)
-
-    trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
-    # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", df2labels1, 6, 2, slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]          # GSN - cheat
-
-
+    trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice_=s) for s in [slice(0, 9000), slice(9000, 10000)]]         # GSN
+    # trainset, testset = [ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice_=s) for s in [slice(0, 9000), slice(8000, 9000)]]         # GSN cheat
     REF['TRAINSET'] = trainset
     REF['TESTSET'] = testset
-    return
-
+    # return
 
     conv_arbitrary = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
     mnistslayer_head = nn.Sequential(Linear(784, 64), nn.ReLU())
@@ -332,70 +322,22 @@ if __name__ == '__main__':
 
 """SCRATCH"""
 
-# def augment_label(label):
-#     indices = torch.tensor([
-#         [0, 1, 2, 3, 4, 5],  # base
-#         [0, 1, 5, 2, 3, 4],  # 90 right
-#         [0, 1, 4, 5, 2, 3],  # 180 right
-#         [0, 1, 3, 4, 5, 2],  # 270 right
-#         [0, 1, 2, 5, 4, 3],  # vertical flip
-#         [0, 1, 3, 2, 5, 4],  # vertical flip + 90 right
-#         [0, 1, 4, 3, 2, 5],  # vertical flip + 180 right
-#         [0, 1, 5, 4, 3, 2],  # vertical flip + 270 right
-#     ]).flatten()
-#     return list(label.index_select(0, indices).split(6))
+
+# trainset = REF['TRAINSET']
 #
-# def augment_image(image):
-#     image_hor_flip = image.flip(2)
-#     images = [
-#         image,  # base
-#         image.rot90(3, [1, 2]),  # 90 right
-#         image.rot90(2, [1, 2]),  # 180 right
-#         image.rot90(1, [1, 2]),  # 270 right
-#         image_hor_flip,  # vertical flip
-#         image_hor_flip.rot90(3, [1, 2]),  # vertical flip + 90 right
-#         image_hor_flip.rot90(2, [1, 2]),  # vertical flip + 180 right
-#         image_hor_flip.rot90(1, [1, 2])  # vertical flip + 270 right
-#     ]
-#     return images
-
-
-# TODO zrobic klase
-trainset = REF['TRAINSET']
-
-
-_images = Augmentations.augment_image(trainset.images[9])
-_labels = Augmentations.augment_label(trainset.labels[9])
-LIMIT = len(_images)
-
-
-import matplotlib.pyplot as plt
-fig, ax = plt.subplots(2, 4)
-for _img, _lab, _ax in zip(_images, _labels[:LIMIT], ax.flatten()[:LIMIT]):
-    _ax.imshow(_img[0, :, :].numpy())
-    _ax.set_xlabel(str(_lab))
+# _images = Augmentations.augment_image(trainset.images[9])
+# _labels = Augmentations.augment_label(trainset.labels[9])
+# LIMIT = len(_images)
+#
+# import matplotlib.pyplot as plt
+# fig, ax = plt.subplots(2, 4)
+# for _img, _lab, _ax in zip(_images, _labels[:LIMIT], ax.flatten()[:LIMIT]):
+#     _ax.imshow(_img[0, :, :].numpy())
+#     _ax.set_xlabel(str(_lab))
 
 
 # TODO wczytanie datastu powinno byc wymagac mniej argumentow
 # TODO zrobic test na drugiej stronie
-
-
-# TODO niech plotuje liste [z góry załóżmy, że 8]
-# TODO obrot w prawo
-
-
-# TODO https://www.youtube.com/watch?v=IN_gzJjNbtw
-# x = torch.tensor([1, 2, 3, 4, 5, 6])
-# z1 = x.index_select(0, torch.tensor([
-#     [0, 1, 2, 3, 4, 5],     # base
-#     [0, 1, 5, 2, 3, 4],     # 90 right
-#     [0, 1, 4, 5, 2, 3],     # 180 right
-#     [0, 1, 3, 4, 5, 2],     # 270 right
-#     [0, 1, 4, 3, 2, 5],     # horizontal flip
-#     [0, 1, 5, 4, 3, 2],     # horizontal flip + 90 right
-#     [0, 1, 2, 5, 4, 3],     # horizontal flip + 180 right
-#     [0, 1, 3, 2, 5, 4],     # horizontal flip + 270 right
-# ]).flatten()).split(6)
 
 
 
