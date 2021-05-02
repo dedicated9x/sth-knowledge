@@ -120,13 +120,17 @@ class Augmentations:
         ]
         return images
 
+# TODO HERE
+import copy
+BUFF = []
+
 class MnistTrainer(object):
     def __init__(self, net, datasets, loss=None, acc=None, no_epoch=20):
         self.net = net
         self.no_epoch = no_epoch
         self.trainset, self.testset = datasets
         self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True)
-        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=4, shuffle=False)
+        self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=8, shuffle=False)
         self.loss = loss
         self.accuracy = acc
         self.print_period = 20
@@ -159,7 +163,11 @@ class MnistTrainer(object):
                 for data in self.testloader:
                     inputs_, labels_ = data
                     outputs_ = self.net(inputs_)
+                    # BUFF.append(copy.deepcopy(inputs_))
+                    # correct_before = correct # del
                     correct += self.accuracy(outputs_, labels_)
+                    # print(correct - correct_before)
+                    # BUFF.append(copy.deepcopy(correct - correct_before))
                     total += outputs_.shape[0]
             print('Accuracy of the network on the {} test images: {} %'.format(total, 100 * correct / total))
 
@@ -250,6 +258,18 @@ class Utils:
     def get_acc_inputs(testset, net, mb_size):
         return Utils.get_loss_inputs(testset, net, mb_size)
 
+    @staticmethod
+    def plot_8images(_images):
+        _labels = ['None'] * 8
+        LIMIT = len(_images)
+
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(2, 4)
+        for _img, _lab, _ax in zip(_images, _labels[:LIMIT], ax.flatten()[:LIMIT]):
+            _ax.imshow(_img[0, :, :].numpy())
+            _ax.set_xlabel(str(_lab))
+
+
 REF = {}
 
 def func1(x):
@@ -264,6 +284,7 @@ def main():
     trainset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(0, 9000))
     # trainset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(0, 9000), augmented=True)
     testset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(9000, 10000))
+    # testset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(9000, 10000), augmented=True)
 
     REF['TRAINSET'] = trainset
     REF['TESTSET'] = testset
@@ -285,7 +306,6 @@ def main():
     _convdens60 = dict(_convdens, **{'dlast': dlast60, 'nonlin_outlayer': CF._10_piecewise_softmax})
     _convdens135 = dict(_convdens, **{'dlast': dlast135, 'nonlin_outlayer': outlayer_count135})
 
-
     net_base6 = Net(**_convdens6)
     net_base60 = Net(**_convdens60)
     net_base135 = Net(**_convdens135)
@@ -294,10 +314,6 @@ def main():
     # return
 
 
-    # TODO testy przy augmentacji - implementacja
-
-    # TODO confussion matrix
-    # TODO testy tego 60
 
     # net_base135.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
 
@@ -305,8 +321,8 @@ def main():
     trainer.train()
     # trainer = MnistTrainer(net=net_base60, datasets=(trainset, testset), loss=CustomFunctional.loss_count_60output, acc=CustomFunctional.acc_count_60output, no_epoch=2)
     # trainer.train()
-    # trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acc_count135, no_epoch=2)
-    # trainer.train()
+    trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acc_count135, no_epoch=20)
+    trainer.train()
 
     # torch.save(net_base135.state_dict(), rf"C:\temp\output\state2.pickle")
 
@@ -320,16 +336,36 @@ Accuracy of the network on the 1000 test images: 6.8 %
 [2,    40] loss: 3.821
 [2,    60] loss: 3.813
 Accuracy of the network on the 1000 test images: 16.3 %
+[1,    20] loss: 6.198
+[1,    40] loss: 5.865
+[1,    60] loss: 5.832
+Accuracy of the network on the 1000 test images: 1.7 %
+[2,    20] loss: 6.024
+[2,    40] loss: 5.632
+[2,    60] loss: 5.599
+Accuracy of the network on the 1000 test images: 2.9 %
 """
 if __name__ == '__main__':
     main()
 
 
+"""augmentations"""
+# testset = REF['TESTSET']
+#
+# # _images = testset.images[8:16]
+# _images = BUFF[555]
+# _labels = ['None'] * 8
+# LIMIT = len(_images)
+#
+# import matplotlib.pyplot as plt
+# fig, ax = plt.subplots(2, 4)
+# for _img, _lab, _ax in zip(_images, _labels[:LIMIT], ax.flatten()[:LIMIT]):
+#     _ax.imshow(_img[0, :, :].numpy())
+#     _ax.set_xlabel(str(_lab))
+
 
 
 """SCRATCH"""
-
-
 # trainset = REF['TRAINSET']
 # labels_aug = torch.cat([torch.stack(Augmentations.augment_label(l)) for l in trainset.labels], dim=0)
 # images_aug = torch.cat([torch.stack(Augmentations.augment_image(im)) for im in trainset.images], dim=0)
