@@ -136,15 +136,16 @@ class Augmentations:
         return images
 
 class MnistTrainer(object):
-    def __init__(self, datasets, loss, acc, ):
+    def __init__(self, datasets, loss, acc, logger):
         self.trainset, self.testset = datasets
         self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=128, shuffle=True)
         self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=8, shuffle=False)
         self.loss = loss
         self.accuracy = acc
+        self.logger = logger
         self.print_period = 20
 
-    def train(self, net, no_epoch=20, verbose=0, reset=False):
+    def train(self, net, name, no_epoch=20, verbose=0, reset=False):
         """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
         if reset:
             net.reset_parameters()
@@ -181,7 +182,9 @@ class MnistTrainer(object):
             log_acc.append(accuracy)
             if verbose == 1:
                 print('Accuracy of the network on the {} test images: {} %'.format(total, accuracy))
-        return log_acc
+        # return log_acc
+        self.logger.save(name, log_acc)
+        return None
 
     def count_matches(self, outputs_transformed, labels_transformed):
         """outputs & labels MUST be integer tensors"""
@@ -249,6 +252,18 @@ class CustomFunctional:
         labels_transformed = labels_.unsqueeze(dim=1)
         return outputs_transformed, labels_transformed
 
+class Logger:
+    def __init__(self):
+        self.logsdict = {}
+
+    def save(self, name, log):
+        self.logsdict[name] = log
+
+    def show_compared(self, names):
+        logs_ = [(v, k) for k, v in self.logsdict.items() if k in names]
+        Utils.plot_logs(logs_)
+
+
 class Utils:
     @staticmethod
     def get_loss_inputs(trainset, net, mb_size):
@@ -275,17 +290,19 @@ class Utils:
 
     @staticmethod
     def plot_logs(logs):
+        import matplotlib.pyplot as plt
         fig, ax = plt.subplots(1, 1)
         for log, label_ in logs:
             ax.plot(range(len(log)), log, marker='o', label=label_)
         ax.legend(loc="lower right")
-        ax.hlines(100, 0, max([len(l[0]) for l in logs]), color='black')
+        ax.hlines(100, 0, max([len(l[0]) for l in logs]) - 1, color='black')
 
 REF = {}
 
 def main():
     torch.manual_seed(0)
     CustomFunctional.init()
+    logger = Logger()
     path_to_data = rf"C:\Datasets\gsn-2021-1"
     testset = ShapesDataset(path_to_data, slice(9000, 10000))
     trainset = ShapesDataset(path_to_data, slice(0, 9000))
@@ -301,43 +318,31 @@ def main():
 
     CF = CustomFunctional
 
-    # _updated = lambda x, y: dict(x, **y)
-    # _dense = {'dense_first': mnistslayer_head, 'dense_core': mnistslayer_body}
-    # _convdens = _updated(_dense, {'conv': conv_arbitrary})
-    # _convdens6 = _updated(_convdens, {'dense_last': dlast6, 'nonlin_outlayer': torch.sigmoid})
-    # _convdens60 = _updated(_convdens, {'dense_last': dlast60, 'nonlin_outlayer': CF._10_piecewise_softmax})
-    # _convdens135 = _updated(_convdens, {'dense_last': dlast135, 'nonlin_outlayer': lambda outputs: torch.softmax(outputs, dim=1)})
-
-
-    # net_mnist = Net(dense_first=mnistslayer_head, dense_core=mnistslayer_body, dense_last="mock")
-    # net_mnist_conv = net_mnist.with_parts(conv=conv_arbitrary)
-    # # net_base6 = net_mnist_conv.with_parts(dense_last=dlast6, nonlin_outlayer=torch.sigmoid)
-    # net_base6 = net_mnist_conv.with_parts(dense_last=dlast6)
-    # net_base6.nonlin_outlayer = torch.sigmoid
-    # # net_base6 = Net(**_convdens6)
-
-
-    # net_base60 = Net(**_convdens60)
-    # net_base135 = Net(**_convdens135)
 
     net_trivial6 = Net(dense_first=mnistslayer_head, dense_core=mnistslayer_body, dense_last=dlast6, nonlin_outlayer=torch.sigmoid)
     net_base6 = net_trivial6.with_parts(conv=conv_arbitrary)
     net_base60 = net_base6.with_parts(dense_last=dlast60, nonlin_outlayer=CF._10_piecewise_softmax)
     net_base135 = net_base6.with_parts(dense_last=dlast135, nonlin_outlayer=lambda outputs: torch.softmax(outputs, dim=1))
 
-    # TODO trainery tworzymy na poczatku
+    # TODO wrzucmy loggera
     # TODO .train(name) - i od razu idzie do logera
     # TODO przenoszenie sieci na device przed liczeniem
     # net_base135.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
 
-    trainer_classify6 = MnistTrainer(datasets=(trainset, testset), loss=CF.loss_classify6, acc=CF.acctransform_classify6)
-    log_clf6 = trainer_classify6.train(net=net_base6, no_epoch=2, verbose=1)
-    trainer_count60 = MnistTrainer(datasets=(trainset, testset), loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
-    log_count60 = trainer_count60.train(net=net_base60, no_epoch=2, verbose=1)
-    trainer_count135 = MnistTrainer(datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135)
-    log_count135 = trainer_count135.train(net=net_base135, no_epoch=2, verbose=1, reset=True)
+    trainer_classify6 = MnistTrainer(datasets=(trainset, testset), logger=logger, loss=CF.loss_classify6, acc=CF.acctransform_classify6)
+    trainer_count60 = MnistTrainer(datasets=(trainset, testset), logger=logger, loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
+    trainer_count135 = MnistTrainer(datasets=(trainset, testset), logger=logger, loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135)
+
+
+    log_clf6 = trainer_classify6.train(net=net_base6, name='name1', no_epoch=2, verbose=1)
+    log_count60 = trainer_count60.train(net=net_base60, name='name2', no_epoch=2, verbose=1)
+    log_count135 = trainer_count135.train(net=net_base135, name='name3', no_epoch=2, verbose=1, reset=True)
+
+    logger.show_compared(['name1', 'name3'])
 
     # torch.save(net_base135.state_dict(), rf"C:\temp\output\state2.pickle")
+
+    # REF['LOGGER'] = logger
 
 
 """ 
@@ -370,3 +375,14 @@ if __name__ == '__main__':
     main()
 
 
+# logger = REF['LOGGER']
+#
+# names = ['name1', 'name3']
+# self = logger
+#
+# # import matplotlib as plt
+# z1 = [(v, k) for k, v in self.logsdict.items() if k in names]
+#
+# # [('name1', [6.8, 16.3]), ('name3', [0.9, 1.3])]
+#
+# Utils.plot_logs(z1)
