@@ -7,7 +7,6 @@ import pandas as pd
 import pathlib as pl
 import itertools
 import sys
-import copy
 
 # import matplotlib.pyplot as plt
 
@@ -74,6 +73,13 @@ class Net(nn.Module):
     def get_parts(self):
         return {'dense_first': self.dense_first, 'dense_core': self.dense_core, 'dense_last': self.dense_last, 'nonlin_outlayer': self.nonlin_outlayer, 'conv': self.conv}
 
+    def to_device(self, device):
+        self.conv.to(device)
+        self.dense_first.to(device)
+        self.dense_core.to(device)
+        self.dense_last.to(device)
+
+
 class ShapesDataset(torch.utils.data.Dataset):
     def __init__(self, root, slice_=None, augmented=False, transform=None, target_transform=None):
         self.img_dir = pl.Path(root).joinpath('data')
@@ -136,12 +142,13 @@ class Augmentations:
         return images
 
 class MnistTrainer(object):
-    def __init__(self, datasets, loss, acc, logger):
+    def __init__(self, datasets, device, loss, acc, logger):
         self.trainset, self.testset = datasets
         self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=128, shuffle=True)
         self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=8, shuffle=False)
         self.loss = loss
         self.accuracy = acc
+        self.device = device
         self.logger = logger
         self.print_period = 20
 
@@ -149,6 +156,7 @@ class MnistTrainer(object):
         """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
         if reset:
             net.reset_parameters()
+        net.to_device(self.device)
         optimizer = torch.optim.SGD(net.parameters(), lr=0.05, momentum=0.9)
         log_acc = []
 
@@ -156,6 +164,7 @@ class MnistTrainer(object):
             running_loss = 0.0
             for i, data in enumerate(self.trainloader, 0):
                 inputs, labels = data
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
                 """pytorch z defaultu sumuje (!) dotychczasowe gradienty. Tym je resetujemy."""
                 optimizer.zero_grad()
                 outputs = net(inputs)
@@ -174,6 +183,7 @@ class MnistTrainer(object):
             with torch.no_grad():
                 for data in self.testloader:
                     inputs_, labels_ = data
+                    inputs_, labels_ = inputs_.to(self.device), labels_.to(self.device)
                     outputs_ = net(inputs_)
                     outputs_transformed, labels_transformed = self.accuracy(outputs_, labels_)
                     correct += self.count_matches(outputs_transformed, labels_transformed)
@@ -300,14 +310,24 @@ class Utils:
 REF = {}
 
 def main():
-    torch.manual_seed(0)
-    CustomFunctional.init()
+    # !wget https://www.mimuw.edu.pl/~ciebie/gsn-2021-1.zip
+    # !unzip gsn-2021-1.zip -d gsn-2021-1
+
+    if 'google.colab' in str(get_ipython()):
+        path_to_data = rf"gsn-2021-1"
+    else:
+        torch.manual_seed(0)
+        path_to_data = rf"C:\Datasets\gsn-2021-1"
+
+    CF = CustomFunctional
+    CF.init()
     logger = Logger()
-    path_to_data = rf"C:\Datasets\gsn-2021-1"
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+    
     testset = ShapesDataset(path_to_data, slice(9000, 10000))
     trainset = ShapesDataset(path_to_data, slice(0, 9000))
     # trainset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(0, 9000), augmented=True)
-
 
     conv_arbitrary = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
     mnistslayer_head = nn.Sequential(Linear(784, 64), nn.ReLU())
@@ -316,31 +336,27 @@ def main():
     dlast60 = Linear(64, 60)
     dlast135 = Linear(64, 135)
 
-    CF = CustomFunctional
-
 
     net_trivial6 = Net(dense_first=mnistslayer_head, dense_core=mnistslayer_body, dense_last=dlast6, nonlin_outlayer=torch.sigmoid)
     net_base6 = net_trivial6.with_parts(conv=conv_arbitrary)
     net_base60 = net_base6.with_parts(dense_last=dlast60, nonlin_outlayer=CF._10_piecewise_softmax)
     net_base135 = net_base6.with_parts(dense_last=dlast135, nonlin_outlayer=lambda outputs: torch.softmax(outputs, dim=1))
 
-    # TODO przenoszenie sieci na device przed liczeniem
     # net_base135.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
 
-    trainer_classify6 = MnistTrainer(datasets=(trainset, testset), logger=logger, loss=CF.loss_classify6, acc=CF.acctransform_classify6)
-    trainer_count60 = MnistTrainer(datasets=(trainset, testset), logger=logger, loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
-    trainer_count135 = MnistTrainer(datasets=(trainset, testset), logger=logger, loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135)
+    trainer_classify6 = MnistTrainer(datasets=(trainset, testset), device=device, logger=logger, loss=CF.loss_classify6, acc=CF.acctransform_classify6)
+    trainer_count60 = MnistTrainer(datasets=(trainset, testset), device=device, logger=logger, loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
+    trainer_count135 = MnistTrainer(datasets=(trainset, testset), device=device, logger=logger, loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135)
 
 
-    log_clf6 = trainer_classify6.train(net=net_base6, name='name1', no_epoch=2, verbose=1)
-    log_count60 = trainer_count60.train(net=net_base60, name='name2', no_epoch=2, verbose=1)
-    log_count135 = trainer_count135.train(net=net_base135, name='name3', no_epoch=2, verbose=1, reset=True)
+    trainer_classify6.train(net=net_base6, name='name1', no_epoch=2, verbose=1)
+    trainer_count60.train(net=net_base60, name='name2', no_epoch=2, verbose=1)
+    trainer_count135.train(net=net_base135, name='name3', no_epoch=2, verbose=1, reset=True)
 
     logger.show_compared(['name1', 'name3'])
 
     # torch.save(net_base135.state_dict(), rf"C:\temp\output\state2.pickle")
 
-    # REF['LOGGER'] = logger
 
 
 """ 
