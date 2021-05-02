@@ -254,14 +254,14 @@ class CustomFunctional:
 
 class Logger:
     def __init__(self):
-        self.logsdict = {}
+        self.names2logs = {}
 
     def save(self, name, log):
-        self.logsdict[name] = log
+        self.names2logs[name] = log
 
     def show_compared(self, names):
-        logs_ = [(v, k) for k, v in self.logsdict.items() if k in names]
-        Utils.plot_logs(logs_)
+        names2logs_subdict = {k: v for k, v in self.names2logs.items() if k in names}
+        Utils.plot_logs(names2logs_subdict)
 
 
 class Utils:
@@ -289,13 +289,13 @@ class Utils:
         return output.shape, output.flatten().shape
 
     @staticmethod
-    def plot_logs(logs):
+    def plot_logs(names2logs: dict):
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots(1, 1)
-        for log, label_ in logs:
+        for label_, log in names2logs.items():
             ax.plot(range(len(log)), log, marker='o', label=label_)
         ax.legend(loc="lower right")
-        ax.hlines(100, 0, max([len(l[0]) for l in logs]) - 1, color='black')
+        ax.hlines(100, 0, max([len(l) for l in names2logs.values()]) - 1, color='black')
 
 REF = {}
 
@@ -324,8 +324,6 @@ def main():
     net_base60 = net_base6.with_parts(dense_last=dlast60, nonlin_outlayer=CF._10_piecewise_softmax)
     net_base135 = net_base6.with_parts(dense_last=dlast135, nonlin_outlayer=lambda outputs: torch.softmax(outputs, dim=1))
 
-    # TODO wrzucmy loggera
-    # TODO .train(name) - i od razu idzie do logera
     # TODO przenoszenie sieci na device przed liczeniem
     # net_base135.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
 
