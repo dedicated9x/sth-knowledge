@@ -142,8 +142,10 @@ class MnistTrainer(object):
         self.accuracy = acc
         self.print_period = 20
 
-    def train(self, net, no_epoch=20):
+    def train(self, net, no_epoch=20, verbose=0, reset=False):
         """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
+        if reset:
+            net.reset_parameters()
         optimizer = optim.SGD(net.parameters(), lr=0.05, momentum=0.9)
         log_acc = []
 
@@ -162,7 +164,8 @@ class MnistTrainer(object):
                 """+= -> bo chcemy logowac troche wieksze liczby"""
                 running_loss += loss.item()
                 if ((i != 0) * (i + 1)) % self.print_period == 1:
-                    print('[%d, %5d] loss: %.3f' % (epoch + 1, i, running_loss / self.print_period))
+                    if verbose == 1:
+                        print('[%d, %5d] loss: %.3f' % (epoch + 1, i, running_loss / self.print_period))
                     running_loss = 0.0
             correct = 0
             total = 0
@@ -176,7 +179,8 @@ class MnistTrainer(object):
                     total += outputs_.shape[0]
             accuracy = 100 * correct / total
             log_acc.append(accuracy)
-            print('Accuracy of the network on the {} test images: {} %'.format(total, accuracy))
+            if verbose == 1:
+                print('Accuracy of the network on the {} test images: {} %'.format(total, accuracy))
         return log_acc
 
     def count_matches(self, outputs_transformed, labels_transformed):
@@ -321,15 +325,12 @@ def main():
 
     # net_base135.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
 
-    # TODO verbose
-    # TODO reset jako parameter
     trainer_classify6 = MnistTrainer(datasets=(trainset, testset), loss=CF.loss_classify6, acc=CF.acctransform_classify6)
-    log_clf6 = trainer_classify6.train(net=net_base6, no_epoch=2)
+    log_clf6 = trainer_classify6.train(net=net_base6, no_epoch=2, verbose=1)
     trainer_count60 = MnistTrainer(datasets=(trainset, testset), loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
-    log_count60 = trainer_count60.train(net=net_base60, no_epoch=2)
-    # net_base60.reset_parameters()
+    log_count60 = trainer_count60.train(net=net_base60, no_epoch=2, verbose=1)
     trainer_count135 = MnistTrainer(datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135)
-    log_count135 = trainer_count135.train(net=net_base135, no_epoch=20)
+    log_count135 = trainer_count135.train(net=net_base135, no_epoch=20, verbose=1)
 
     
 
