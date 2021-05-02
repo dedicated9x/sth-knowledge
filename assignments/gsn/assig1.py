@@ -165,7 +165,6 @@ class MnistTrainer(object):
                     total += outputs_.shape[0]
             print('Accuracy of the network on the {} test images: {} %'.format(total, 100 * correct / total))
 
-    # @ staticmethod
     def count_matches(self, outputs_transformed, labels_transformed):
         """outputs & labels MUST be integer tensors"""
         no_correct = (outputs_transformed == labels_transformed).all(dim=1).int().sum().item()
@@ -184,8 +183,9 @@ class CustomFunctional:
     def binarize_topk(batch, k):
         return F.one_hot(torch.topk(batch, k).indices, batch.shape[1]).sum(dim=1)
 
-    # TODO wpierw cmp_bin w acc
-    # TODO count_matches -> do Trainera
+
+    # TODO test na ostatniej sieci
+    # TODO przemianowac na acc_transform_(nazwa sieci)
 
     @staticmethod
     def loss_nll(outputs, labels):
@@ -203,8 +203,7 @@ class CustomFunctional:
     @ staticmethod
     def acc_count_60output(outputs, labels):
         outputs_ = torch.stack(outputs.split(10, dim=1)).argmax(dim=2).T
-        correct = (outputs_ == labels).all(dim=1).int().sum().item()
-        return correct
+        return outputs_, labels
 
     @ staticmethod
     def _10_piecewise_softmax(outputs):
@@ -309,8 +308,8 @@ def main():
 
     trainer = MnistTrainer(net=net_base6, datasets=(trainset, testset), loss=CF.loss_classify, acc=CF.acc_classify, no_epoch=2)
     trainer.train()
-    # trainer = MnistTrainer(net=net_base60, datasets=(trainset, testset), loss=CustomFunctional.loss_count_60output, acc=CustomFunctional.acc_count_60output, no_epoch=2)
-    # trainer.train()
+    trainer = MnistTrainer(net=net_base60, datasets=(trainset, testset), loss=CustomFunctional.loss_count_60output, acc=CustomFunctional.acc_count_60output, no_epoch=2)
+    trainer.train()
     trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acc_count135, no_epoch=2)
     trainer.train()
 
@@ -326,14 +325,21 @@ Accuracy of the network on the 1000 test images: 6.8 %
 [2,    40] loss: 3.821
 [2,    60] loss: 3.813
 Accuracy of the network on the 1000 test images: 16.3 %
-[1,    20] loss: 6.198
-[1,    40] loss: 5.865
-[1,    60] loss: 5.832
-Accuracy of the network on the 1000 test images: 1.7 %
-[2,    20] loss: 6.024
-[2,    40] loss: 5.632
-[2,    60] loss: 5.599
-Accuracy of the network on the 1000 test images: 2.9 %
+[1,    20] loss: 59.664
+[1,    40] loss: 50.674
+[1,    60] loss: 51.983
+Accuracy of the network on the 1000 test images: 0.0 %
+[2,    20] loss: 54.151
+[2,    40] loss: 51.374
+[2,    60] loss: 50.749
+Accuracy of the network on the 1000 test images: 0.0 %
+[1,    20] loss: 19.183
+[1,    40] loss: 18.204
+[1,    60] loss: 18.204
+Accuracy of the network on the 1000 test images: 1.3 %
+[2,    20] loss: 19.162
+[2,    40] loss: 18.283
+[2,    60] loss: 18.147
 """
 if __name__ == '__main__':
     main()
