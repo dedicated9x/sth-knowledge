@@ -65,10 +65,14 @@ class Net(nn.Module):
         self.dense_last.apply(Net.weight_reset)
 
     def with_parts(self, **kwargs):
-        new_net = Net(dense_first=self.dense_first, dense_core=self.dense_core, dense_last=self.dense_last, nonlin_outlayer=self.nonlin_outlayer, conv=self.conv)
+        # new_net = Net(dense_first=self.dense_first, dense_core=self.dense_core, dense_last=self.dense_last, nonlin_outlayer=self.nonlin_outlayer, conv=self.conv)
+        new_net = Net(**self.get_parts())
         for k, v in kwargs.items():
             setattr(new_net, k, v)
         return new_net
+
+    def get_parts(self):
+        return {'dense_first': self.dense_first, 'dense_core': self.dense_core, 'dense_last': self.dense_last, 'nonlin_outlayer': self.nonlin_outlayer, 'conv': self.conv}
 
 class ShapesDataset(torch.utils.data.Dataset):
     def __init__(self, root, slice_=None, augmented=False, transform=None, target_transform=None):
@@ -321,10 +325,7 @@ def main():
     net_base60 = net_base6.with_parts(dense_last=dlast60, nonlin_outlayer=CF._10_piecewise_softmax)
     net_base135 = net_base6.with_parts(dense_last=dlast135, nonlin_outlayer=lambda outputs: torch.softmax(outputs, dim=1))
 
-    # TODO uproscic sytuacje tutaj
-    # TODO zrobic slownik z parametrami
-
-    # TODO with(), reset()
+    # TODO trainery tworzymy na poczatku
     # TODO .train(name) - i od razu idzie do logera
     # TODO przenoszenie sieci na device przed liczeniem
     # net_base135.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
