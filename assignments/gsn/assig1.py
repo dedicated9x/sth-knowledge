@@ -183,10 +183,6 @@ class CustomFunctional:
     def binarize_topk(batch, k):
         return F.one_hot(torch.topk(batch, k).indices, batch.shape[1]).sum(dim=1)
 
-
-    # TODO test na ostatniej sieci
-    # TODO przemianowac na acc_transform_(nazwa sieci)
-
     @staticmethod
     def loss_nll(outputs, labels):
         neg_sums = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
@@ -194,14 +190,14 @@ class CustomFunctional:
         return loss
 
     @ staticmethod
-    def loss_count_60output(outputs, labels):
+    def loss_count60(outputs, labels):
         rs = labels.repeat_interleave(10, dim=1)
         js = torch.Tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).repeat(6)
         loss = (outputs * (rs - js) ** 2).sum(dim=1).mean()
         return loss
 
     @ staticmethod
-    def acc_count_60output(outputs, labels):
+    def acctransform_count60(outputs, labels):
         outputs_ = torch.stack(outputs.split(10, dim=1)).argmax(dim=2).T
         return outputs_, labels
 
@@ -210,14 +206,14 @@ class CustomFunctional:
         return torch.stack(outputs.split(10, dim=1)).softmax(dim=2).transpose(0, 1).flatten(1, 2)
 
     @ classmethod
-    def loss_classify(cls, outputs, labels):
+    def loss_classify6(cls, outputs, labels):
         # TODO binarize topk_tutaj wloz
         labels_ = cls.binarize_topk(labels, 2)
         loss = cls.loss_nll(outputs, labels_)
         return loss
 
     @ classmethod
-    def acc_classify(cls, outputs, labels):
+    def acctransform_classify6(cls, outputs, labels):
         outputs_bin = cls.binarize_topk(outputs, 2)
         labels_bin = cls.binarize_topk(labels, 2)
         return outputs_bin, labels_bin
@@ -229,11 +225,12 @@ class CustomFunctional:
         return loss
 
     @ classmethod
-    def acc_count135(cls, outputs, labels):
+    def acctransform_count135(cls, outputs, labels):
         outputs_transformed = torch.topk(outputs, 1).indices
         labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.numpy())] for e in labels])
         labels_transformed = labels_.unsqueeze(dim=1)
         return outputs_transformed, labels_transformed
+
 
 class Utils:
     @staticmethod
@@ -257,7 +254,6 @@ class Utils:
         for _img, _lab, _ax in zip(_images, _labels[:LIMIT], ax.flatten()[:LIMIT]):
             _ax.imshow(_img[0, :, :].numpy())
             _ax.set_xlabel(str(_lab))
-
 
 REF = {}
 
@@ -287,13 +283,14 @@ def main():
     dlast135 = Linear(64, 135)
 
     CF = CustomFunctional
-    outlayer_count135 = lambda outputs: torch.softmax(outputs, dim=1)
+    _updated = lambda x, y: dict(x, **y)
+
 
     _dense = {'dfirst': mnistslayer_head, 'dcore': mnistslayer_body}
-    _convdens = dict(_dense, **{'conv': conv_arbitrary})
-    _convdens6 = dict(_convdens, **{'dlast': dlast6, 'nonlin_outlayer': torch.sigmoid})
-    _convdens60 = dict(_convdens, **{'dlast': dlast60, 'nonlin_outlayer': CF._10_piecewise_softmax})
-    _convdens135 = dict(_convdens, **{'dlast': dlast135, 'nonlin_outlayer': outlayer_count135})
+    _convdens = _updated(_dense, {'conv': conv_arbitrary})
+    _convdens6 = _updated(_convdens, {'dlast': dlast6, 'nonlin_outlayer': torch.sigmoid})
+    _convdens60 = _updated(_convdens, {'dlast': dlast60, 'nonlin_outlayer': CF._10_piecewise_softmax})
+    _convdens135 = _updated(_convdens, {'dlast': dlast135, 'nonlin_outlayer': lambda outputs: torch.softmax(outputs, dim=1)})
 
     net_base6 = Net(**_convdens6)
     net_base60 = Net(**_convdens60)
@@ -303,15 +300,14 @@ def main():
     # return
 
 
-
     # net_base135.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
 
-    trainer = MnistTrainer(net=net_base6, datasets=(trainset, testset), loss=CF.loss_classify, acc=CF.acc_classify, no_epoch=2)
+    trainer = MnistTrainer(net=net_base6, datasets=(trainset, testset), loss=CF.loss_classify6, acc=CF.acctransform_classify6, no_epoch=2)
     trainer.train()
-    trainer = MnistTrainer(net=net_base60, datasets=(trainset, testset), loss=CustomFunctional.loss_count_60output, acc=CustomFunctional.acc_count_60output, no_epoch=2)
-    trainer.train()
-    trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acc_count135, no_epoch=2)
-    trainer.train()
+    # trainer = MnistTrainer(net=net_base60, datasets=(trainset, testset), loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60, no_epoch=2)
+    # trainer.train()
+    # trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135, no_epoch=2)
+    # trainer.train()
 
     # torch.save(net_base135.state_dict(), rf"C:\temp\output\state2.pickle")
 
@@ -340,9 +336,16 @@ Accuracy of the network on the 1000 test images: 1.3 %
 [2,    20] loss: 19.162
 [2,    40] loss: 18.283
 [2,    60] loss: 18.147
+Accuracy of the network on the 1000 test images: 1.3 %
 """
 if __name__ == '__main__':
     main()
+
+
+
+_updated = lambda x, y: dict(x, **y)
+x = {'a': 1, 'b': 2}
+y = {'b': 3}
 
 
 """augmentations"""
