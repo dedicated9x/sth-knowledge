@@ -56,6 +56,17 @@ class Net(nn.Module):
         eps = 1e-4
         return (1 - 2 * eps) * tensor_ + eps
 
+    @staticmethod
+    def weight_reset(m):
+        if isinstance(m, nn.Conv2d) or isinstance(m, Linear):
+            m.reset_parameters()
+
+    def reset_parameters(self):
+        self.conv.apply(Net.weight_reset)
+        self.dense_first.apply(Net.weight_reset)
+        self.dense_core.apply(Net.weight_reset)
+        self.dense_last.apply(Net.weight_reset)
+
 # TODO on tez do wyjebki
 MB_SIZE = 128
 
@@ -119,7 +130,6 @@ class Augmentations:
             image_vert_flip.rot90(1, [1, 2])    # vertical flip + 270 right
         ]
         return images
-
 
 class MnistTrainer(object):
     def __init__(self, datasets, loss, acc, ):
@@ -235,7 +245,6 @@ class CustomFunctional:
         labels_transformed = labels_.unsqueeze(dim=1)
         return outputs_transformed, labels_transformed
 
-
 class Utils:
     @staticmethod
     def get_loss_inputs(trainset, net, mb_size):
@@ -305,23 +314,20 @@ def main():
     net_base60 = Net(**_convdens60)
     net_base135 = Net(**_convdens135)
 
-    REF['NET'] = conv_arbitrary
+    # net_vanilla = Net(**_updated(_convdens, {'conv': None, 'dlast': dlast6}))
+    REF['NET'] = None
     # return
 
 
     # net_base135.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
 
-    # TODO przepisac dwa pozostale
     # TODO verbose
-    # TODO zrobic taka architekture, aby byl init i reinit ----------> reset_parameters jako atrybut w "train" HEHE!!!
+    # TODO reset jako parameter
     trainer_classify6 = MnistTrainer(datasets=(trainset, testset), loss=CF.loss_classify6, acc=CF.acctransform_classify6)
     log_clf6 = trainer_classify6.train(net=net_base6, no_epoch=2)
-    # trainer = MnistTrainer(net=net_base60, datasets=(trainset, testset), loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60, no_epoch=2)
-    # trainer.train()
-    # trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135, no_epoch=2)
-    # trainer.train()
     trainer_count60 = MnistTrainer(datasets=(trainset, testset), loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
     log_count60 = trainer_count60.train(net=net_base60, no_epoch=2)
+    # net_base60.reset_parameters()
     trainer_count135 = MnistTrainer(datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135)
     log_count135 = trainer_count135.train(net=net_base135, no_epoch=20)
 
@@ -342,6 +348,11 @@ Accuracy of the network on the 1000 test images: 16.3 %
 """
 if __name__ == '__main__':
     main()
+
+
+
+
+net = REF['NET']
 
 
 
