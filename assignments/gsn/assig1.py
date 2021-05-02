@@ -1,18 +1,14 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 from torch.nn.parameter import Parameter
-from torch.nn import init
 import torchvision
-import torchvision.transforms as transforms
-import functools
 import pandas as pd
 import pathlib as pl
-from torch.utils.data import Dataset
-from torchvision.io import read_image
-import sys
 import itertools
+import sys
+
+# import matplotlib.pyplot as plt
 
 
 class Linear(torch.nn.Module):
@@ -25,8 +21,8 @@ class Linear(torch.nn.Module):
 
 
     def reset_parameters(self):
-        init.kaiming_normal_(self.weight, mode='fan_in')
-        init.zeros_(self.bias)
+        nn.init.kaiming_normal_(self.weight, mode='fan_in')
+        nn.init.zeros_(self.bias)
 
     def forward(self, x):
         r = x.matmul(self.weight.t()) # .t() => wyciąga z obiektu Parameter, jego obiekt bazowy Tensor (obliczenia tego wymagają)
@@ -67,16 +63,13 @@ class Net(nn.Module):
         self.dense_core.apply(Net.weight_reset)
         self.dense_last.apply(Net.weight_reset)
 
-# TODO on tez do wyjebki
-MB_SIZE = 128
-
-class ShapesDataset(Dataset):
+class ShapesDataset(torch.utils.data.Dataset):
     def __init__(self, root, slice_=None, augmented=False, transform=None, target_transform=None):
         self.img_dir = pl.Path(root).joinpath('data')
         self.df = pd.read_csv(self.img_dir.joinpath('labels.csv'))
         if slice_ is not None:
             self.df = self.df[slice_]
-        self.images = torch.stack([read_image(self.img_dir.joinpath(name).__str__())[0:1] / 255 for name in self.df['name']])
+        self.images = torch.stack([torchvision.io.read_image(self.img_dir.joinpath(name).__str__())[0:1] / 255 for name in self.df['name']])
         self.labels = torch.tensor(self.df.drop(['name'], axis=1).values)
 
         if augmented:
@@ -133,10 +126,8 @@ class Augmentations:
 
 class MnistTrainer(object):
     def __init__(self, datasets, loss, acc, ):
-        # self.net = net
-        # self.no_epoch = no_epoch
         self.trainset, self.testset = datasets
-        self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True)
+        self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=128, shuffle=True)
         self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=8, shuffle=False)
         self.loss = loss
         self.accuracy = acc
@@ -146,7 +137,7 @@ class MnistTrainer(object):
         """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
         if reset:
             net.reset_parameters()
-        optimizer = optim.SGD(net.parameters(), lr=0.05, momentum=0.9)
+        optimizer = torch.optim.SGD(net.parameters(), lr=0.05, momentum=0.9)
         log_acc = []
 
         for epoch in range(no_epoch):
@@ -160,7 +151,6 @@ class MnistTrainer(object):
                 loss.backward()
                 """tensor (loss) liczy TYLKO 'grad'.  A przecież nam zależy na minimum (w końcu SDG)"""
                 optimizer.step()
-
                 """+= -> bo chcemy logowac troche wieksze liczby"""
                 running_loss += loss.item()
                 if ((i != 0) * (i + 1)) % self.print_period == 1:
@@ -173,7 +163,6 @@ class MnistTrainer(object):
                 for data in self.testloader:
                     inputs_, labels_ = data
                     outputs_ = net(inputs_)
-                    # correct += self.accuracy(outputs_, labels_)
                     outputs_transformed, labels_transformed = self.accuracy(outputs_, labels_)
                     correct += self.count_matches(outputs_transformed, labels_transformed)
                     total += outputs_.shape[0]
@@ -258,10 +247,6 @@ class Utils:
         return outputs, labels
 
     @staticmethod
-    def get_acc_inputs(testset, net, mb_size):
-        return Utils.get_loss_inputs(testset, net, mb_size)
-
-    @staticmethod
     def plot_8images(_images):
         _labels = ['None'] * 8
         LIMIT = len(_images)
@@ -277,25 +262,26 @@ class Utils:
         output = net_(torch.zeros([1, 1, 28, 28]))
         return output.shape, output.flatten().shape
 
-REF = {}
+    @staticmethod
+    def plot_logs(logs):
+        fig, ax = plt.subplots(1, 1)
+        for log, label_ in logs:
+            ax.plot(range(len(log)), log, marker='o', label=label_)
+        ax.legend(loc="lower right")
+        ax.hlines(100, 0, max([len(l[0]) for l in logs]), color='black')
 
-def func1(x):
-    a = 1
-    return x
+REF = {}
 
 def main():
     torch.manual_seed(0)
+
     CustomFunctional.init()
-    # return
 
-    trainset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(0, 9000))
+    path_to_data = rf"C:\Datasets\gsn-2021-1"
+
+    testset = ShapesDataset(path_to_data, slice(9000, 10000))
+    trainset = ShapesDataset(path_to_data, slice(0, 9000))
     # trainset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(0, 9000), augmented=True)
-    testset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(9000, 10000))
-    # testset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(9000, 10000), augmented=True)
-
-    REF['TRAINSET'] = trainset
-    REF['TESTSET'] = testset
-    # return
 
     conv_arbitrary = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
     mnistslayer_head = nn.Sequential(Linear(784, 64), nn.ReLU())
@@ -307,7 +293,6 @@ def main():
     CF = CustomFunctional
     _updated = lambda x, y: dict(x, **y)
 
-
     _dense = {'dfirst': mnistslayer_head, 'dcore': mnistslayer_body}
     _convdens = _updated(_dense, {'conv': conv_arbitrary})
     _convdens6 = _updated(_convdens, {'dlast': dlast6, 'nonlin_outlayer': torch.sigmoid})
@@ -318,11 +303,6 @@ def main():
     net_base60 = Net(**_convdens60)
     net_base135 = Net(**_convdens135)
 
-    # net_vanilla = Net(**_updated(_convdens, {'conv': None, 'dlast': dlast6}))
-    REF['NET'] = None
-    # return
-
-
     # net_base135.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
 
     trainer_classify6 = MnistTrainer(datasets=(trainset, testset), loss=CF.loss_classify6, acc=CF.acctransform_classify6)
@@ -330,9 +310,7 @@ def main():
     trainer_count60 = MnistTrainer(datasets=(trainset, testset), loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
     log_count60 = trainer_count60.train(net=net_base60, no_epoch=2, verbose=1)
     trainer_count135 = MnistTrainer(datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135)
-    log_count135 = trainer_count135.train(net=net_base135, no_epoch=20, verbose=1)
-
-    
+    log_count135 = trainer_count135.train(net=net_base135, no_epoch=2, verbose=1, reset=True)
 
     # torch.save(net_base135.state_dict(), rf"C:\temp\output\state2.pickle")
 
@@ -346,161 +324,24 @@ Accuracy of the network on the 1000 test images: 6.8 %
 [2,    40] loss: 3.821
 [2,    60] loss: 3.813
 Accuracy of the network on the 1000 test images: 16.3 %
+[1,    20] loss: 59.664
+[1,    40] loss: 50.674
+[1,    60] loss: 51.983
+Accuracy of the network on the 1000 test images: 0.0 %
+[2,    20] loss: 54.151
+[2,    40] loss: 51.374
+[2,    60] loss: 50.749
+Accuracy of the network on the 1000 test images: 0.0 %
+[1,    20] loss: 6.186
+[1,    40] loss: 5.858
+[1,    60] loss: 5.812
+Accuracy of the network on the 1000 test images: 0.9 %
+[2,    20] loss: 6.005
+[2,    40] loss: 5.692
+[2,    60] loss: 5.693
+Accuracy of the network on the 1000 test images: 1.3 %
 """
 if __name__ == '__main__':
     main()
-
-
-
-
-net = REF['NET']
-
-
-
-
-"""augmentations"""
-# testset = REF['TESTSET']
-#
-# # _images = testset.images[8:16]
-# _images = BUFF[555]
-# _labels = ['None'] * 8
-# LIMIT = len(_images)
-#
-# import matplotlib.pyplot as plt
-# fig, ax = plt.subplots(2, 4)
-# for _img, _lab, _ax in zip(_images, _labels[:LIMIT], ax.flatten()[:LIMIT]):
-#     _ax.imshow(_img[0, :, :].numpy())
-#     _ax.set_xlabel(str(_lab))
-
-
-
-"""SCRATCH"""
-# trainset = REF['TRAINSET']
-# labels_aug = torch.cat([torch.stack(Augmentations.augment_label(l)) for l in trainset.labels], dim=0)
-# images_aug = torch.cat([torch.stack(Augmentations.augment_image(im)) for im in trainset.images], dim=0)
-#
-
-
-
-
-"""test augmentacji na calym datasecie"""
-# choice = torch.tensor([12, 43, 854, 23, 504, 203, 205, 289])
-# _images = images_aug.index_select(0, choice)
-# _labels = labels_aug.index_select(0, choice)
-# LIMIT = len(_images)
-#
-# import matplotlib.pyplot as plt
-# fig, ax = plt.subplots(2, 4)
-# for _img, _lab, _ax in zip(_images, _labels[:LIMIT], ax.flatten()[:LIMIT]):
-#     _ax.imshow(_img[0, :, :].numpy())
-#     _ax.set_xlabel(str(_lab))
-
-
-
-
-
-
-
-"""tworzenie funkcji"""
-# torch.set_printoptions(linewidth=700)
-# outputs, labels = Utils.get_acc_inputs(REF['TRAINSET'], REF['NET'], 4)
-
-
-"""df2labels"""
-# root = rf"C:\Datasets\gsn-2021-1"
-# img_dir = pl.Path(root).joinpath('data')
-# df = pd.read_csv(img_dir.joinpath('labels.csv'))
-# lablen = 10
-
-
-
-
-
-"""DECYZJA - tryb szybki"""
-# Nie robimy, bo datasety za chwilę i tak będa niewielkie.
-
-
-
-"""Jak ma być"""
-#             (basic label)                       MA BYC OSTATECZNIE
-# MNIST       [0, 0, 0, 0, 0, 0, 1, 0, 0, 0]      <- tak
-# GSN         [0, 0, 0, 6, 0, 0, 4, 0, 0, 0]      [0, 0, 0, 6, 0, 0, 4, 0, 0, 0] lub [0, 0, 0, 1, 0, 0, 1, 0, 0, 0]
-
-
-"""skurwialy case 389"""
-# labels = torch.tensor([5], dtype=torch.long) # [0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
-# outputs = torch.Tensor([[-18.5508, -17.9211, -19.8926, -13.2589, -16.2123,  16.8303, -14.1339, -20.7289, -11.2858, -14.3649]]) #torch.Size([2, 10])
-#
-#
-# labels1 = F.one_hot(labels, 10) # torch.Size([2, 10])
-# outputs1 = 0.9999 * torch.sigmoid(outputs)
-# loss_nll(outputs1, labels1)
-#
-# outputs = outputs1
-# labels = labels1
-
-
-"""syntetyk"""
-# outputs = torch.Tensor([[0.05, 0.9, 0.3, 0.05, 0.05, 0.05], [0.01, 0.95, 0.05, 0.3, 0.05, 0.05]]) #torch.Size([2, 6])
-# labels = torch.Tensor([[0, 1, 1, 0, 0, 0], [0, 1, 0, 1, 0, 0]]) #torch.Size([2, 6])
-
-
-"""natural (stary init)"""
-# labels = torch.tensor([6, 2], dtype=torch.long) # torch.Size([2])
-# outputs = torch.Tensor([[47.0333, -8.8092, -31.7119, -15.8912, -14.0070, 58.2908, 15.3053, 16.3086, 14.9250, 1.6518], [ 19.9257,  -6.3817, -14.2751,  21.4164, -21.7247,  49.5124,  -2.5922, -21.6784,  -1.3972,  10.1371]]) #torch.Size([2, 10])
-
-
-"""natural (nowy init)"""
-# labels = torch.tensor([2, 5], dtype=torch.long) # torch.Size([2])
-# outputs = torch.Tensor([[-0.0017,  1.1775, -0.3094, -0.3539,  0.0291, -0.0736, -0.1235,  0.0097, -0.9908,  0.5361], [ 0.1747,  0.5950,  0.0957, -0.3287, -0.1601, -0.0745,  0.2418,  0.0014, -0.3589,  0.3077]]) #torch.Size([2, 10])
-
-
-"""Z czym był problem"""
-# torch.log(1 - torch.sigmoid(torch.tensor([47.])))
-
-"""testy log sumy"""
-# outputs = torch.Tensor([[0.05, 0.9, 0.3, 0.05, 0.05, 0.05], [0.01, 0.95, 0.05, 0.3, 0.05, 0.05]]) #torch.Size([2, 6])
-# labels = torch.Tensor([[0, 1, 1, 0, 0, 0], [0, 1, 0, 1, 0, 0]]) #torch.Size([2, 6])
-# y = labels
-# y1 = outputs
-# -torch.sum(torch.log(y1) * y + torch.log(1 - y1) * (1 - y))
-
-
-"""XYZ Dzialanie (obecnych) loss funkcji"""
-# criterion = nn.CrossEntropyLoss()
-# criterion = nn.NLLLoss()
-# output = torch.Tensor([[47.0333, -8.8092, -31.7119, -15.8912, -14.0070, 58.2908, 15.3053, 16.3086, 14.9250, 1.6518]]) #torch.Size([1, 10])
-# labels = torch.tensor([6], dtype=torch.long) # torch.Size([1])
-# criterion(output, labels)
-
-
-"""SHAPE - DEPENDPEND func"""
-# def func1(output, target):
-#     loss = torch.sum(torch.mean(output, dim=1) * target)
-#     return loss
-#
-# output = torch.Tensor([[2., 3.]])
-# target = torch.Tensor([1.2])
-#
-# outputS = torch.Tensor([[2., 3.], [4., 7.]])
-# targetS = torch.Tensor([1.2, 0.5])
-#
-# func1(output, target)
-# func1(outputS, targetS)
-
-
-"""DECYZJA - custom"""
-# trzeba zrobic recznie, bo i tak dostaniemy jakas sztuczna duplikacje #torch.Size([1, 6, 2]) + nie wiadomo, czy takie sumowanie ma sens
-
-
-"""N i C"""
-#torch.Size([batch_size,    y_size  ])
-#torch.Size([N,             C       ])
-
-
-"""INPUT, OUTPUT, TARGET, LABELS"""
-# criterion(output, labels)
-# loss(input, target)
-
 
 
