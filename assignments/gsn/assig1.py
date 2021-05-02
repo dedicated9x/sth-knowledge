@@ -31,12 +31,12 @@ class Linear(torch.nn.Module):
         return r
 
 class Net(nn.Module):
-    def __init__(self, dfirst, dcore, dlast, nonlin_outlayer=None, conv=None):
+    def __init__(self, dense_first, dense_core, dense_last, nonlin_outlayer=None, conv=None):
         super(Net, self).__init__()
         self.conv = conv if conv is not None else torch.nn.Identity()
-        self.dense_first = dfirst
-        self.dense_core = dcore
-        self.dense_last = dlast
+        self.dense_first = dense_first
+        self.dense_core = dense_core
+        self.dense_last = dense_last
         self.nonlin_outlayer = nonlin_outlayer if nonlin_outlayer is not None else torch.nn.Identity()
 
     def forward(self, x):
@@ -65,7 +65,7 @@ class Net(nn.Module):
         self.dense_last.apply(Net.weight_reset)
 
     def with_parts(self, **kwargs):
-        new_net = Net(dfirst=self.dense_first, dcore=self.dense_core, dlast=self.dense_last, nonlin_outlayer=self.nonlin_outlayer, conv=self.conv)
+        new_net = Net(dense_first=self.dense_first, dense_core=self.dense_core, dense_last=self.dense_last, nonlin_outlayer=self.nonlin_outlayer, conv=self.conv)
         for k, v in kwargs.items():
             setattr(new_net, k, v)
         return new_net
@@ -296,21 +296,33 @@ def main():
     dlast135 = Linear(64, 135)
 
     CF = CustomFunctional
-    _updated = lambda x, y: dict(x, **y)
 
-    _dense = {'dfirst': mnistslayer_head, 'dcore': mnistslayer_body}
-    _convdens = _updated(_dense, {'conv': conv_arbitrary})
-    _convdens6 = _updated(_convdens, {'dlast': dlast6, 'nonlin_outlayer': torch.sigmoid})
-    _convdens60 = _updated(_convdens, {'dlast': dlast60, 'nonlin_outlayer': CF._10_piecewise_softmax})
-    _convdens135 = _updated(_convdens, {'dlast': dlast135, 'nonlin_outlayer': lambda outputs: torch.softmax(outputs, dim=1)})
+    # _updated = lambda x, y: dict(x, **y)
+    # _dense = {'dense_first': mnistslayer_head, 'dense_core': mnistslayer_body}
+    # _convdens = _updated(_dense, {'conv': conv_arbitrary})
+    # _convdens6 = _updated(_convdens, {'dense_last': dlast6, 'nonlin_outlayer': torch.sigmoid})
+    # _convdens60 = _updated(_convdens, {'dense_last': dlast60, 'nonlin_outlayer': CF._10_piecewise_softmax})
+    # _convdens135 = _updated(_convdens, {'dense_last': dlast135, 'nonlin_outlayer': lambda outputs: torch.softmax(outputs, dim=1)})
 
-    net_base6 = Net(**_convdens6)
-    # TODO kolezka powyzej sie juz tak zrobi
 
-    net_base60 = net_base6.with_parts(dense_last=dlast60, nonlin_outlayer=CF._10_piecewise_softmax)
+    # net_mnist = Net(dense_first=mnistslayer_head, dense_core=mnistslayer_body, dense_last="mock")
+    # net_mnist_conv = net_mnist.with_parts(conv=conv_arbitrary)
+    # # net_base6 = net_mnist_conv.with_parts(dense_last=dlast6, nonlin_outlayer=torch.sigmoid)
+    # net_base6 = net_mnist_conv.with_parts(dense_last=dlast6)
+    # net_base6.nonlin_outlayer = torch.sigmoid
+    # # net_base6 = Net(**_convdens6)
+
 
     # net_base60 = Net(**_convdens60)
-    net_base135 = Net(**_convdens135)
+    # net_base135 = Net(**_convdens135)
+
+    net_trivial6 = Net(dense_first=mnistslayer_head, dense_core=mnistslayer_body, dense_last=dlast6, nonlin_outlayer=torch.sigmoid)
+    net_base6 = net_trivial6.with_parts(conv=conv_arbitrary)
+    net_base60 = net_base6.with_parts(dense_last=dlast60, nonlin_outlayer=CF._10_piecewise_softmax)
+    net_base135 = net_base6.with_parts(dense_last=dlast135, nonlin_outlayer=lambda outputs: torch.softmax(outputs, dim=1))
+
+    # TODO uproscic sytuacje tutaj
+    # TODO zrobic slownik z parametrami
 
     # TODO with(), reset()
     # TODO .train(name) - i od razu idzie do logera
