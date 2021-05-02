@@ -122,9 +122,9 @@ class Augmentations:
 
 
 class MnistTrainer(object):
-    def __init__(self, net, datasets, loss=None, acc=None, no_epoch=20):
-        self.net = net
-        self.no_epoch = no_epoch
+    def __init__(self, datasets, loss, acc, ):
+        # self.net = net
+        # self.no_epoch = no_epoch
         self.trainset, self.testset = datasets
         self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=MB_SIZE, shuffle=True)
         self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=8, shuffle=False)
@@ -132,17 +132,18 @@ class MnistTrainer(object):
         self.accuracy = acc
         self.print_period = 20
 
-    def train(self):
+    def train(self, net, no_epoch=20):
         """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
-        optimizer = optim.SGD(self.net.parameters(), lr=0.05, momentum=0.9)
+        optimizer = optim.SGD(net.parameters(), lr=0.05, momentum=0.9)
+        log_acc = []
 
-        for epoch in range(self.no_epoch):
+        for epoch in range(no_epoch):
             running_loss = 0.0
             for i, data in enumerate(self.trainloader, 0):
                 inputs, labels = data
                 """pytorch z defaultu sumuje (!) dotychczasowe gradienty. Tym je resetujemy."""
                 optimizer.zero_grad()
-                outputs = self.net(inputs)
+                outputs = net(inputs)
                 loss = self.loss(outputs, labels)
                 loss.backward()
                 """tensor (loss) liczy TYLKO 'grad'.  A przecież nam zależy na minimum (w końcu SDG)"""
@@ -158,12 +159,15 @@ class MnistTrainer(object):
             with torch.no_grad():
                 for data in self.testloader:
                     inputs_, labels_ = data
-                    outputs_ = self.net(inputs_)
+                    outputs_ = net(inputs_)
                     # correct += self.accuracy(outputs_, labels_)
                     outputs_transformed, labels_transformed = self.accuracy(outputs_, labels_)
                     correct += self.count_matches(outputs_transformed, labels_transformed)
                     total += outputs_.shape[0]
-            print('Accuracy of the network on the {} test images: {} %'.format(total, 100 * correct / total))
+            accuracy = 100 * correct / total
+            log_acc.append(accuracy)
+            print('Accuracy of the network on the {} test images: {} %'.format(total, accuracy))
+        return log_acc
 
     def count_matches(self, outputs_transformed, labels_transformed):
         """outputs & labels MUST be integer tensors"""
@@ -255,6 +259,11 @@ class Utils:
             _ax.imshow(_img[0, :, :].numpy())
             _ax.set_xlabel(str(_lab))
 
+    @staticmethod
+    def conv_output_shape(net_):
+        output = net_(torch.zeros([1, 1, 28, 28]))
+        return output.shape, output.flatten().shape
+
 REF = {}
 
 def func1(x):
@@ -296,18 +305,27 @@ def main():
     net_base60 = Net(**_convdens60)
     net_base135 = Net(**_convdens135)
 
-    REF['NET'] = net_base135
+    REF['NET'] = conv_arbitrary
     # return
 
 
     # net_base135.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
 
-    trainer = MnistTrainer(net=net_base6, datasets=(trainset, testset), loss=CF.loss_classify6, acc=CF.acctransform_classify6, no_epoch=2)
-    trainer.train()
+    # TODO przepisac dwa pozostale
+    # TODO verbose
+    # TODO zrobic taka architekture, aby byl init i reinit ----------> reset_parameters jako atrybut w "train" HEHE!!!
+    trainer_classify6 = MnistTrainer(datasets=(trainset, testset), loss=CF.loss_classify6, acc=CF.acctransform_classify6)
+    log_clf6 = trainer_classify6.train(net=net_base6, no_epoch=2)
     # trainer = MnistTrainer(net=net_base60, datasets=(trainset, testset), loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60, no_epoch=2)
     # trainer.train()
     # trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135, no_epoch=2)
     # trainer.train()
+    trainer_count60 = MnistTrainer(datasets=(trainset, testset), loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
+    log_count60 = trainer_count60.train(net=net_base60, no_epoch=2)
+    trainer_count135 = MnistTrainer(datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135)
+    log_count135 = trainer_count135.train(net=net_base135, no_epoch=20)
+
+    
 
     # torch.save(net_base135.state_dict(), rf"C:\temp\output\state2.pickle")
 
@@ -321,31 +339,11 @@ Accuracy of the network on the 1000 test images: 6.8 %
 [2,    40] loss: 3.821
 [2,    60] loss: 3.813
 Accuracy of the network on the 1000 test images: 16.3 %
-[1,    20] loss: 59.664
-[1,    40] loss: 50.674
-[1,    60] loss: 51.983
-Accuracy of the network on the 1000 test images: 0.0 %
-[2,    20] loss: 54.151
-[2,    40] loss: 51.374
-[2,    60] loss: 50.749
-Accuracy of the network on the 1000 test images: 0.0 %
-[1,    20] loss: 19.183
-[1,    40] loss: 18.204
-[1,    60] loss: 18.204
-Accuracy of the network on the 1000 test images: 1.3 %
-[2,    20] loss: 19.162
-[2,    40] loss: 18.283
-[2,    60] loss: 18.147
-Accuracy of the network on the 1000 test images: 1.3 %
 """
 if __name__ == '__main__':
     main()
 
 
-
-_updated = lambda x, y: dict(x, **y)
-x = {'a': 1, 'b': 2}
-y = {'b': 3}
 
 
 """augmentations"""
