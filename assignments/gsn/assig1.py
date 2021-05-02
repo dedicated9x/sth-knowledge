@@ -7,6 +7,7 @@ import pandas as pd
 import pathlib as pl
 import itertools
 import sys
+import copy
 
 # import matplotlib.pyplot as plt
 
@@ -62,6 +63,12 @@ class Net(nn.Module):
         self.dense_first.apply(Net.weight_reset)
         self.dense_core.apply(Net.weight_reset)
         self.dense_last.apply(Net.weight_reset)
+
+    def with_parts(self, **kwargs):
+        new_net = Net(dfirst=self.dense_first, dcore=self.dense_core, dlast=self.dense_last, nonlin_outlayer=self.nonlin_outlayer, conv=self.conv)
+        for k, v in kwargs.items():
+            setattr(new_net, k, v)
+        return new_net
 
 class ShapesDataset(torch.utils.data.Dataset):
     def __init__(self, root, slice_=None, augmented=False, transform=None, target_transform=None):
@@ -274,14 +281,12 @@ REF = {}
 
 def main():
     torch.manual_seed(0)
-
     CustomFunctional.init()
-
     path_to_data = rf"C:\Datasets\gsn-2021-1"
-
     testset = ShapesDataset(path_to_data, slice(9000, 10000))
     trainset = ShapesDataset(path_to_data, slice(0, 9000))
     # trainset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(0, 9000), augmented=True)
+
 
     conv_arbitrary = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
     mnistslayer_head = nn.Sequential(Linear(784, 64), nn.ReLU())
@@ -300,9 +305,16 @@ def main():
     _convdens135 = _updated(_convdens, {'dlast': dlast135, 'nonlin_outlayer': lambda outputs: torch.softmax(outputs, dim=1)})
 
     net_base6 = Net(**_convdens6)
-    net_base60 = Net(**_convdens60)
+    # TODO kolezka powyzej sie juz tak zrobi
+
+    net_base60 = net_base6.with_parts(dense_last=dlast60, nonlin_outlayer=CF._10_piecewise_softmax)
+
+    # net_base60 = Net(**_convdens60)
     net_base135 = Net(**_convdens135)
 
+    # TODO with(), reset()
+    # TODO .train(name) - i od razu idzie do logera
+    # TODO przenoszenie sieci na device przed liczeniem
     # net_base135.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
 
     trainer_classify6 = MnistTrainer(datasets=(trainset, testset), loss=CF.loss_classify6, acc=CF.acctransform_classify6)
