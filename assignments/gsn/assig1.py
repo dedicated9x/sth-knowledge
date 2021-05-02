@@ -120,9 +120,6 @@ class Augmentations:
         ]
         return images
 
-# TODO HERE
-import copy
-BUFF = []
 
 class MnistTrainer(object):
     def __init__(self, net, datasets, loss=None, acc=None, no_epoch=20):
@@ -153,7 +150,6 @@ class MnistTrainer(object):
 
                 """+= -> bo chcemy logowac troche wieksze liczby"""
                 running_loss += loss.item()
-                # TODO to powinien byc NIE-PARAMETR dla trainera
                 if ((i != 0) * (i + 1)) % self.print_period == 1:
                     print('[%d, %5d] loss: %.3f' % (epoch + 1, i, running_loss / self.print_period))
                     running_loss = 0.0
@@ -163,13 +159,17 @@ class MnistTrainer(object):
                 for data in self.testloader:
                     inputs_, labels_ = data
                     outputs_ = self.net(inputs_)
-                    # BUFF.append(copy.deepcopy(inputs_))
-                    # correct_before = correct # del
-                    correct += self.accuracy(outputs_, labels_)
-                    # print(correct - correct_before)
-                    # BUFF.append(copy.deepcopy(correct - correct_before))
+                    # correct += self.accuracy(outputs_, labels_)
+                    outputs_transformed, labels_transformed = self.accuracy(outputs_, labels_)
+                    correct += MnistTrainer.cmpr_bin(outputs_transformed, labels_transformed)
                     total += outputs_.shape[0]
             print('Accuracy of the network on the {} test images: {} %'.format(total, 100 * correct / total))
+
+    @ staticmethod
+    def cmpr_bin(outputs_transformed, labels_transformed):
+        """outputs & labels MUST be integer tensors"""
+        no_correct = (outputs_transformed == labels_transformed).all(dim=1).int().sum().item()
+        return no_correct
 
 class CustomFunctional:
     counts2class = None # Will be calculated in external scope
@@ -184,18 +184,22 @@ class CustomFunctional:
     def binarize_topk(batch, k):
         return F.one_hot(torch.topk(batch, k).indices, batch.shape[1]).sum(dim=1)
 
-    @ staticmethod
-    def cmpr_bin(outputs, labels):
-        """outputs & labels MUST be binary"""
-        no_correct = (outputs == labels).all(dim=1).int().sum().item()
-        return no_correct
+    # TODO wpierw cmp_bin w acc
+    # TODO count_matches -> do Trainera
 
-    @classmethod
-    def acc_topk_hot(cls, k, outputs, labels):
-        outputs_bin = cls.binarize_topk(outputs, k)
-        labels_bin = cls.binarize_topk(labels, k)
-        no_correct = cls.cmpr_bin(outputs_bin, labels_bin)
-        return no_correct
+    # @ staticmethod
+    # def cmpr_bin(outputs_transformed, labels_transformed):
+    #     """outputs & labels MUST be integer tensors"""
+    #     no_correct = (outputs_transformed == labels_transformed).all(dim=1).int().sum().item()
+    #     return no_correct
+
+    # @classmethod
+    # def acc_topk_hot(cls, k, outputs, labels):
+    #     outputs_bin = cls.binarize_topk(outputs, k)
+    #     labels_bin = cls.binarize_topk(labels, k)
+    #     # TODO HERE
+    #     no_correct = MnistTrainer.cmpr_bin(outputs_bin, labels_bin)
+    #     return no_correct
 
     @staticmethod
     def loss_nll(outputs, labels):
@@ -229,9 +233,16 @@ class CustomFunctional:
 
     @ classmethod
     def acc_classify(cls, outputs, labels):
-        no_correct = cls.acc_topk_hot(2, outputs, labels)
-        return no_correct
+        # no_correct = cls.acc_topk_hot(2, outputs, labels)
 
+        outputs_bin = cls.binarize_topk(outputs, 2)
+        labels_bin = cls.binarize_topk(labels, 2)
+        # TODO HERE
+        no_correct = MnistTrainer.cmpr_bin(outputs_bin, labels_bin)
+
+
+        # return no_correct
+        return outputs_bin, labels_bin
 
     @ staticmethod
     def loss_count135(outputs, labels):
@@ -243,8 +254,10 @@ class CustomFunctional:
     def acc_count135(cls, outputs, labels):
         labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.numpy())] for e in labels])
         outputs_ = torch.topk(outputs, 1).indices
-        no_correct = cls.cmpr_bin(outputs_, labels_.unsqueeze(dim=1))
-        return no_correct
+        # TODO HERE
+        no_correct = MnistTrainer.cmpr_bin(outputs_, labels_.unsqueeze(dim=1))
+        # return no_correct
+        return outputs_, labels_.unsqueeze(dim=1)
 
 class Utils:
     @staticmethod
@@ -321,7 +334,7 @@ def main():
     trainer.train()
     # trainer = MnistTrainer(net=net_base60, datasets=(trainset, testset), loss=CustomFunctional.loss_count_60output, acc=CustomFunctional.acc_count_60output, no_epoch=2)
     # trainer.train()
-    trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acc_count135, no_epoch=20)
+    trainer = MnistTrainer(net=net_base135, datasets=(trainset, testset), loss=CustomFunctional.loss_count135, acc=CustomFunctional.acc_count135, no_epoch=2)
     trainer.train()
 
     # torch.save(net_base135.state_dict(), rf"C:\temp\output\state2.pickle")
