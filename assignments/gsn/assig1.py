@@ -353,7 +353,7 @@ def main():
     trainer_count60.train(net=net_base60, name='name2', no_epoch=2, verbose=1)
     trainer_count135.train(net=net_base135, name='name3', no_epoch=2, verbose=1, reset=True)
 
-    logger.show_compared(['name1', 'name3'])
+    # logger.show_compared(['name1', 'name3'])
 
     # torch.save(net_base135.state_dict(), rf"C:\temp\output\state2.pickle")
 
