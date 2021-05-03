@@ -11,11 +11,11 @@ import sys
 import seaborn as sn
 
 
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 
 class Linear(torch.nn.Module):
-    """in_features, out_features -> <liczba> neuronów przed, <liczba> neuronów po tej warstwie."""
+    """This class has been """
     def __init__(self, in_features: int, out_features: int):
         super(Linear, self).__init__()
         self.weight = Parameter(torch.Tensor(out_features, in_features))
@@ -155,7 +155,7 @@ class MnistTrainer(object):
         self.logger = logger
         self.print_period = 20
 
-    def train(self, net, name, no_epoch=20, verbose=0, reset=False):
+    def train(self, net, name, no_epoch=20, verbose=0, reset=True):
         """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
         if reset:
             net.reset_parameters()
@@ -206,6 +206,7 @@ class MnistTrainer(object):
 
 class CustomFunctional:
     counts2class = None # Will be calculated in external scope
+    device = None
 
     @classmethod
     def init(cls):
@@ -226,7 +227,7 @@ class CustomFunctional:
     @ staticmethod
     def loss_count60(outputs, labels):
         rs = labels.repeat_interleave(10, dim=1)
-        js = torch.Tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).repeat(6)
+        js = torch.Tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).repeat(6).to(device)
         loss = (outputs * (rs - js) ** 2).sum(dim=1).mean()
         return loss
 
@@ -254,14 +255,14 @@ class CustomFunctional:
 
     @ staticmethod
     def loss_count135(outputs, labels):
-        labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.numpy())] for e in labels])
+        labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.cpu().numpy())] for e in labels]).to(device)
         loss = CustomFunctional.loss_nll(outputs, F.one_hot(labels_, 135))
         return loss
 
     @ classmethod
     def acctransform_count135(cls, outputs, labels):
         outputs_transformed = torch.topk(outputs, 1).indices
-        labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.numpy())] for e in labels])
+        labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.cpu().numpy())] for e in labels]).to(device)
         labels_transformed = labels_.unsqueeze(dim=1)
         return outputs_transformed, labels_transformed
 
@@ -271,6 +272,9 @@ class Logger:
 
     def save(self, name, log):
         self.names2logs[name] = log
+
+    def acc(self, name):
+        return max(logger.names2logs[name])
 
     def show_compared(self, names):
         names2logs_subdict = {k: v for k, v in self.names2logs.items() if k in names}
@@ -303,14 +307,16 @@ class Utils:
 
     @staticmethod
     def plot_logs(names2logs: dict):
-        import matplotlib.pyplot as plt
         fig, ax = plt.subplots(1, 1)
         for label_, log in names2logs.items():
             ax.plot(range(len(log)), log, marker='o', label=label_)
         ax.legend(loc="lower right")
         ax.hlines(100, 0, max([len(l) for l in names2logs.values()]) - 1, color='black')
 
+
 REF = {}
+logger = Logger()
+device = 'cpu'
 
 def main():
     # !wget https://www.mimuw.edu.pl/~ciebie/gsn-2021-1.zip
@@ -324,8 +330,8 @@ def main():
 
     CF = CustomFunctional
     CF.init()
-    logger = Logger()
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+    CF.device = device
 
     
     testset = ShapesDataset(path_to_data, slice(9000, 10000))
@@ -345,11 +351,8 @@ def main():
     net_base60 = net_base6.with_parts(dense_last=dlast60, nonlin_outlayer=CF._10_piecewise_softmax)
     net_base135 = net_base6.with_parts(dense_last=dlast135, nonlin_outlayer=lambda outputs: torch.softmax(outputs, dim=1))
 
-    net_base6.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
+    # net_base6.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
 
-    REF['SET'] = testset
-    REF['NET'] = net_base6
-    return
 
     trainer_classify6 = MnistTrainer(datasets=(trainset, testset), device=device, logger=logger, loss=CF.loss_classify6, acc=CF.acctransform_classify6)
     trainer_count60 = MnistTrainer(datasets=(trainset, testset), device=device, logger=logger, loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
@@ -357,14 +360,39 @@ def main():
 
 
     trainer_classify6.train(net=net_base6, name='name1', no_epoch=2, verbose=1)
-    # trainer_count60.train(net=net_base60, name='name2', no_epoch=2, verbose=1)
-    # trainer_count135.train(net=net_base135, name='name3', no_epoch=2, verbose=1, reset=True)
+    trainer_count60.train(net=net_base60, name='name2', no_epoch=2, verbose=1)
+    trainer_count135.train(net=net_base135, name='name3', no_epoch=20, verbose=1, reset=True)
 
-    # logger.show_compared(['name1', 'name3'])
+    logger.show_compared(['name1', 'name3'])
 
     # torch.save(net_base6.state_dict(), rf"C:\temp\output\state2.pickle")
 
-
+"""
+[1,    20] loss: 4.089
+[1,    40] loss: 3.819
+[1,    60] loss: 3.806
+Accuracy of the network on the 1000 test images: 8.7 %
+[2,    20] loss: 3.945
+[2,    40] loss: 3.745
+[2,    60] loss: 3.363
+Accuracy of the network on the 1000 test images: 18.9 %
+[1,    20] loss: 55.979
+[1,    40] loss: 47.789
+[1,    60] loss: 47.710
+Accuracy of the network on the 1000 test images: 0.0 %
+[2,    20] loss: 50.206
+[2,    40] loss: 47.713
+[2,    60] loss: 47.529
+Accuracy of the network on the 1000 test images: 0.0 %
+[1,    20] loss: 6.186
+[1,    40] loss: 5.849
+[1,    60] loss: 5.794
+Accuracy of the network on the 1000 test images: 1.8 %
+[2,    20] loss: 6.000
+[2,    40] loss: 5.697
+[2,    60] loss: 5.695
+Accuracy of the network on the 1000 test images: 0.6 %
+"""
 
 """ 
 [1,    20] loss: 4.047
@@ -395,58 +423,60 @@ Accuracy of the network on the 1000 test images: 1.3 %
 if __name__ == '__main__':
     main()
 
-testset = REF['SET']
-net = REF['NET']
 
-# z1 = net(testset.images)
-
-labels2classids = {
-    (1, 1, 0, 0, 0, 0): 0,
-    (1, 0, 1, 0, 0, 0): 1,
-    (1, 0, 0, 1, 0, 0): 2,
-    (1, 0, 0, 0, 1, 0): 3,
-    (1, 0, 0, 0, 0, 1): 4,
-    (0, 1, 1, 0, 0, 0): 5,
-    (0, 1, 0, 1, 0, 0): 6,
-    (0, 1, 0, 0, 1, 0): 7,
-    (0, 1, 0, 0, 0, 1): 8,
-    (0, 0, 1, 1, 0, 0): 9,
-    (0, 0, 1, 0, 1, 0): 10,
-    (0, 0, 1, 0, 0, 1): 11,
-    (0, 0, 0, 1, 1, 0): 12,
-    (0, 0, 0, 1, 0, 1): 13,
-    (0, 0, 0, 0, 1, 1): 14,
-}
-
-
-outputs_, labels_ = CustomFunctional.acctransform_classify6(net(testset.images), testset.labels)
-cm = np.zeros(shape=(15, 15))
-for o, l in zip(outputs_, labels_):
-    predicted_id = labels2classids[tuple(o.numpy())]
-    true_id = labels2classids[tuple(l.numpy())]
-    cm[true_id, predicted_id] += 1
-
-symbols = '□○△▷▽◁'
-label2symbol = lambda x: ''.join([symbols[idx] for idx, bool_ in enumerate(x) if bool_ == 1])
-class_symbols = [label2symbol(k) for k in labels2classids.keys()]
-df_cm = pd.DataFrame(cm, index=class_symbols, columns=class_symbols)
-sn.heatmap(df_cm, annot=True)
-
-"""Conclusion"""
-pd.Series([(o == l).int().sum().item() for o, l in zip(outputs_, labels_)]).replace({6: 'all matched', 4: '1 matched', 2: 'none matched'}).value_counts()
-
-"""One shape"""
-indices_of_ones = lambda x: (x == 1).nonzero(as_tuple=True)[0].numpy().tolist()
-paired_indices = lambda x, y: [(i, i) for i in set(x) & set(y)] + [(i, j) for i, j in zip(list(set(x) - set(y)), list(set(y) - set(x)))]
-[(indices_of_ones(o), indices_of_ones(l)) for o, l in zip(outputs_[:10], labels_[:10])]
-[paired_indices(indices_of_ones(o), indices_of_ones(l)) for o, l in zip(outputs_[:10], labels_[:10])]
-cm = np.zeros(shape=(6, 6))
-for o, l in zip(outputs_, labels_):
-    for predicted_id, true_id in paired_indices(indices_of_ones(o), indices_of_ones(l)):
-        cm[true_id, predicted_id] += 1
-
-class_symbols = list(symbols)
-df_cm = pd.DataFrame(cm, index=class_symbols, columns=class_symbols)
-sn.heatmap(df_cm, annot=True, fmt='g')
+"""CONFUSION MATRIX"""
+# testset = REF['SET']
+# net = REF['NET']
+#
+# # z1 = net(testset.images)
+#
+# labels2classids = {
+#     (1, 1, 0, 0, 0, 0): 0,
+#     (1, 0, 1, 0, 0, 0): 1,
+#     (1, 0, 0, 1, 0, 0): 2,
+#     (1, 0, 0, 0, 1, 0): 3,
+#     (1, 0, 0, 0, 0, 1): 4,
+#     (0, 1, 1, 0, 0, 0): 5,
+#     (0, 1, 0, 1, 0, 0): 6,
+#     (0, 1, 0, 0, 1, 0): 7,
+#     (0, 1, 0, 0, 0, 1): 8,
+#     (0, 0, 1, 1, 0, 0): 9,
+#     (0, 0, 1, 0, 1, 0): 10,
+#     (0, 0, 1, 0, 0, 1): 11,
+#     (0, 0, 0, 1, 1, 0): 12,
+#     (0, 0, 0, 1, 0, 1): 13,
+#     (0, 0, 0, 0, 1, 1): 14,
+# }
+#
+#
+# outputs_, labels_ = CustomFunctional.acctransform_classify6(net(testset.images), testset.labels)
+# cm = np.zeros(shape=(15, 15))
+# for o, l in zip(outputs_, labels_):
+#     predicted_id = labels2classids[tuple(o.numpy())]
+#     true_id = labels2classids[tuple(l.numpy())]
+#     cm[true_id, predicted_id] += 1
+#
+# symbols = '□○△▷▽◁'
+# label2symbol = lambda x: ''.join([symbols[idx] for idx, bool_ in enumerate(x) if bool_ == 1])
+# class_symbols = [label2symbol(k) for k in labels2classids.keys()]
+# df_cm = pd.DataFrame(cm, index=class_symbols, columns=class_symbols)
+# sn.heatmap(df_cm, annot=True)
+#
+# """Conclusion"""
+# pd.Series([(o == l).int().sum().item() for o, l in zip(outputs_, labels_)]).replace({6: 'all matched', 4: '1 matched', 2: 'none matched'}).value_counts()
+#
+# """One shape"""
+# indices_of_ones = lambda x: (x == 1).nonzero(as_tuple=True)[0].numpy().tolist()
+# paired_indices = lambda x, y: [(i, i) for i in set(x) & set(y)] + [(i, j) for i, j in zip(list(set(x) - set(y)), list(set(y) - set(x)))]
+# [(indices_of_ones(o), indices_of_ones(l)) for o, l in zip(outputs_[:10], labels_[:10])]
+# [paired_indices(indices_of_ones(o), indices_of_ones(l)) for o, l in zip(outputs_[:10], labels_[:10])]
+# cm = np.zeros(shape=(6, 6))
+# for o, l in zip(outputs_, labels_):
+#     for predicted_id, true_id in paired_indices(indices_of_ones(o), indices_of_ones(l)):
+#         cm[true_id, predicted_id] += 1
+#
+# class_symbols = list(symbols)
+# df_cm = pd.DataFrame(cm, index=class_symbols, columns=class_symbols)
+# sn.heatmap(df_cm, annot=True, fmt='g')
 
 
