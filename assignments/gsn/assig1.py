@@ -15,25 +15,26 @@ import matplotlib.pyplot as plt
 
 
 class Linear(torch.nn.Module):
-    """This class has been """
+    """This class has been taken from exercise 9."""
     def __init__(self, in_features: int, out_features: int):
         super(Linear, self).__init__()
         self.weight = Parameter(torch.Tensor(out_features, in_features))
         self.bias = Parameter(torch.Tensor(out_features))
         self.reset_parameters()
 
-
     def reset_parameters(self):
         nn.init.kaiming_normal_(self.weight, mode='fan_in')
         nn.init.zeros_(self.bias)
 
     def forward(self, x):
-        r = x.matmul(self.weight.t()) # .t() => wyciąga z obiektu Parameter, jego obiekt bazowy Tensor (obliczenia tego wymagają)
+        r = x.matmul(self.weight.t())
         r += self.bias
         return r
 
 class Net(nn.Module):
+    """This class is similar to class `Net` exercise 9."""
     def __init__(self, dense_first, dense_core, dense_last, nonlin_outlayer=None, conv=None):
+        """If you want to know more about parameters -> see: .forward()"""
         super(Net, self).__init__()
         self.conv = conv if conv is not None else torch.nn.Identity()
         self.dense_first = dense_first
@@ -52,9 +53,18 @@ class Net(nn.Module):
         return x
 
     def interiorize(self, tensor_):
+        """
+        Linear transformation which prevents tensor to have coordinates equal to 0 or 1. Sometimes we have to calculate
+        logarithms of the outputs. If output's coordinates equal to O or 1, their logarithms will be `nan`
+        Params:
+            `tensor_` - must have all coordinates within <0, 1>
+        Returns:
+            Tensor with all coordinates within <eps, 1-eps>
+        """
         eps = 1e-4
         return (1 - 2 * eps) * tensor_ + eps
 
+    # TODO przerobic na lambde
     @staticmethod
     def weight_reset(m):
         if isinstance(m, nn.Conv2d) or isinstance(m, Linear):
@@ -67,12 +77,16 @@ class Net(nn.Module):
         self.dense_last.apply(Net.weight_reset)
 
     def with_parts(self, **kwargs):
-        # new_net = Net(dense_first=self.dense_first, dense_core=self.dense_core, dense_last=self.dense_last, nonlin_outlayer=self.nonlin_outlayer, conv=self.conv)
+        """
+        Params:
+            `kwargs` - parameters from Net.__init__()
+        """
         new_net = Net(**self.get_parts())
         for k, v in kwargs.items():
             setattr(new_net, k, v)
         return new_net
 
+    # TODO usun to na dobra sprawe
     def get_parts(self):
         return {'dense_first': self.dense_first, 'dense_core': self.dense_core, 'dense_last': self.dense_last, 'nonlin_outlayer': self.nonlin_outlayer, 'conv': self.conv}
 
@@ -82,7 +96,7 @@ class Net(nn.Module):
         self.dense_core.to(device)
         self.dense_last.to(device)
 
-
+# TODO wywalic transformy
 class ShapesDataset(torch.utils.data.Dataset):
     def __init__(self, root, slice_=None, augmented=False, transform=None, target_transform=None):
         self.img_dir = pl.Path(root).joinpath('data')
@@ -144,19 +158,21 @@ class Augmentations:
         ]
         return images
 
+# TODO zmiana na Trainer
 class MnistTrainer(object):
+    """This class is similar to class `MnistTrainer` exercise 9."""
     def __init__(self, datasets, device, loss, acc, logger):
         self.trainset, self.testset = datasets
         self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=128, shuffle=True)
         self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=8, shuffle=False)
         self.loss = loss
+        # TODO zmiana na acc_transform
         self.accuracy = acc
         self.device = device
         self.logger = logger
         self.print_period = 20
 
     def train(self, net, name, no_epoch=20, verbose=0, reset=True):
-        """FOCUS: sgd dostaje info o sieci, jaką będzie trenował"""
         if reset:
             net.reset_parameters()
         net.to_device(self.device)
@@ -168,14 +184,11 @@ class MnistTrainer(object):
             for i, data in enumerate(self.trainloader, 0):
                 inputs, labels = data
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
-                """pytorch z defaultu sumuje (!) dotychczasowe gradienty. Tym je resetujemy."""
                 optimizer.zero_grad()
                 outputs = net(inputs)
                 loss = self.loss(outputs, labels)
                 loss.backward()
-                """tensor (loss) liczy TYLKO 'grad'.  A przecież nam zależy na minimum (w końcu SDG)"""
                 optimizer.step()
-                """+= -> bo chcemy logowac troche wieksze liczby"""
                 running_loss += loss.item()
                 if ((i != 0) * (i + 1)) % self.print_period == 1:
                     if verbose == 1:
@@ -195,7 +208,6 @@ class MnistTrainer(object):
             log_acc.append(accuracy)
             if verbose == 1:
                 print('Accuracy of the network on the {} test images: {} %'.format(total, accuracy))
-        # return log_acc
         self.logger.save(name, log_acc)
         return None
 
@@ -205,7 +217,25 @@ class MnistTrainer(object):
         return no_correct
 
 class CustomFunctional:
-    counts2class = None # Will be calculated in external scope
+    """
+    +----------------+------------------+---------------------------+-------------------------+
+    | PROBLEM        | LOSS             | ACCURACY_TRANSFORM        | OUTPUT_NONLINEAR        |
+    +----------------+------------------+---------------------------+-------------------------+
+    | Classification | loss_classify6() |  acctransform_classify6() | 'sigmoid'               |
+    +----------------+------------------+---------------------------+-------------------------+
+    | Counting (60)  | loss_count60()   | acctransform_count60()    | _10_piecewise_softmax() |
+    +----------------+------------------+---------------------------+-------------------------+
+    | Counting (135) | loss_count135()  | acctransform_count135()   | 'softmax'               |
+    +----------------+------------------+---------------------------+-------------------------+
+
+    Assumptions:
+        1. All methods from the table take batches (!) as an input
+    Assumptions (ACCURACY_TRANSFORM):
+        1. Methods returns batches (not scalar!) with same shape as inputs. Mentioned outputs have comparable type
+        (they can be easily compared using `==`, which is not possible to inputs).
+        2. Inputs for these methods are outputs of `OUTPUT_NONLINEAR` methods.
+    """
+    counts2class = None
     device = None
 
     @classmethod
@@ -216,16 +246,37 @@ class CustomFunctional:
 
     @staticmethod
     def binarize_topk(batch, k):
+        """For each sample, converts top k coordinates to 1 and rest of them to 0"""
         return F.one_hot(torch.topk(batch, k).indices, batch.shape[1]).sum(dim=1)
 
     @staticmethod
     def loss_nll(outputs, labels):
+        """
+        Returns negative sum* of logarithmic losses.
+        
+        *The sum is averaged over the batch.
+        """
         neg_sums = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
         loss = torch.mean(neg_sums)
         return loss
 
+    @ classmethod
+    def loss_classify6(cls, outputs, labels):
+        """See: CustomFunctional"""
+        labels_ = cls.binarize_topk(labels, 2)
+        loss = cls.loss_nll(outputs, labels_)
+        return loss
+
+    @ classmethod
+    def acctransform_classify6(cls, outputs, labels):
+        """See: CustomFunctional"""
+        outputs_bin = cls.binarize_topk(outputs, 2)
+        labels_bin = cls.binarize_topk(labels, 2)
+        return outputs_bin, labels_bin
+
     @ staticmethod
     def loss_count60(outputs, labels):
+        """See: CustomFunctional"""
         rs = labels.repeat_interleave(10, dim=1)
         js = torch.Tensor([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).repeat(6).to(device)
         loss = (outputs * (rs - js) ** 2).sum(dim=1).mean()
@@ -233,54 +284,54 @@ class CustomFunctional:
 
     @ staticmethod
     def acctransform_count60(outputs, labels):
+        """See: CustomFunctional"""
         outputs_ = torch.stack(outputs.split(10, dim=1)).argmax(dim=2).T
         return outputs_, labels
 
     @ staticmethod
     def _10_piecewise_softmax(outputs):
+        """See: CustomFunctional"""
         return torch.stack(outputs.split(10, dim=1)).softmax(dim=2).transpose(0, 1).flatten(1, 2)
-
-    @ classmethod
-    def loss_classify6(cls, outputs, labels):
-        # TODO binarize topk_tutaj wloz
-        labels_ = cls.binarize_topk(labels, 2)
-        loss = cls.loss_nll(outputs, labels_)
-        return loss
-
-    @ classmethod
-    def acctransform_classify6(cls, outputs, labels):
-        outputs_bin = cls.binarize_topk(outputs, 2)
-        labels_bin = cls.binarize_topk(labels, 2)
-        return outputs_bin, labels_bin
 
     @ staticmethod
     def loss_count135(outputs, labels):
+        """See: CustomFunctional"""
         labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.cpu().numpy())] for e in labels]).to(device)
         loss = CustomFunctional.loss_nll(outputs, F.one_hot(labels_, 135))
         return loss
 
     @ classmethod
     def acctransform_count135(cls, outputs, labels):
+        """See: CustomFunctional"""
         outputs_transformed = torch.topk(outputs, 1).indices
         labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.cpu().numpy())] for e in labels]).to(device)
         labels_transformed = labels_.unsqueeze(dim=1)
         return outputs_transformed, labels_transformed
 
 class Logger:
+    """Class which stores logs from all experiments and have possibility to present them."""
     def __init__(self):
+        """
+        Attributes:
+            `names2logs` -  `name` - names of expriments (usually name of the network)
+                            `log` - list of accuracies
+        """
         self.names2logs = {}
 
     def save(self, name, log):
+        """See: Logger.__init__()"""
         self.names2logs[name] = log
 
     def acc(self, name):
+        """See: Logger.__init__()"""
         return max(logger.names2logs[name])
 
     def show_compared(self, names):
+        """Create accuracy plot of given networks."""
         names2logs_subdict = {k: v for k, v in self.names2logs.items() if k in names}
         Utils.plot_logs(names2logs_subdict)
 
-
+# TODO usun dwie pierwsze
 class Utils:
     @staticmethod
     def get_loss_inputs(trainset, net, mb_size):
@@ -302,9 +353,11 @@ class Utils:
 
     @staticmethod
     def conv_output_shape(net_):
+        """Returns output shape of convolutional network, assuming that input shape is equal to [1, 28, 28]"""
         output = net_(torch.zeros([1, 1, 28, 28]))
         return output.shape, output.flatten().shape
 
+    # TODO przenies do loggera
     @staticmethod
     def plot_logs(names2logs: dict):
         fig, ax = plt.subplots(1, 1)
