@@ -4,9 +4,12 @@ import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 import torchvision
 import pandas as pd
+import numpy as np
 import pathlib as pl
 import itertools
 import sys
+import seaborn as sn
+
 
 # import matplotlib.pyplot as plt
 
@@ -342,7 +345,11 @@ def main():
     net_base60 = net_base6.with_parts(dense_last=dlast60, nonlin_outlayer=CF._10_piecewise_softmax)
     net_base135 = net_base6.with_parts(dense_last=dlast135, nonlin_outlayer=lambda outputs: torch.softmax(outputs, dim=1))
 
-    # net_base135.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
+    net_base6.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
+
+    REF['SET'] = testset
+    REF['NET'] = net_base6
+    return
 
     trainer_classify6 = MnistTrainer(datasets=(trainset, testset), device=device, logger=logger, loss=CF.loss_classify6, acc=CF.acctransform_classify6)
     trainer_count60 = MnistTrainer(datasets=(trainset, testset), device=device, logger=logger, loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
@@ -350,12 +357,12 @@ def main():
 
 
     trainer_classify6.train(net=net_base6, name='name1', no_epoch=2, verbose=1)
-    trainer_count60.train(net=net_base60, name='name2', no_epoch=2, verbose=1)
-    trainer_count135.train(net=net_base135, name='name3', no_epoch=2, verbose=1, reset=True)
+    # trainer_count60.train(net=net_base60, name='name2', no_epoch=2, verbose=1)
+    # trainer_count135.train(net=net_base135, name='name3', no_epoch=2, verbose=1, reset=True)
 
     # logger.show_compared(['name1', 'name3'])
 
-    # torch.save(net_base135.state_dict(), rf"C:\temp\output\state2.pickle")
+    # torch.save(net_base6.state_dict(), rf"C:\temp\output\state2.pickle")
 
 
 
@@ -388,15 +395,58 @@ Accuracy of the network on the 1000 test images: 1.3 %
 if __name__ == '__main__':
     main()
 
+testset = REF['SET']
+net = REF['NET']
 
-# logger = REF['LOGGER']
-#
-# names = ['name1', 'name3']
-# self = logger
-#
-# # import matplotlib as plt
-# z1 = [(v, k) for k, v in self.logsdict.items() if k in names]
-#
-# # [('name1', [6.8, 16.3]), ('name3', [0.9, 1.3])]
-#
-# Utils.plot_logs(z1)
+# z1 = net(testset.images)
+
+labels2classids = {
+    (1, 1, 0, 0, 0, 0): 0,
+    (1, 0, 1, 0, 0, 0): 1,
+    (1, 0, 0, 1, 0, 0): 2,
+    (1, 0, 0, 0, 1, 0): 3,
+    (1, 0, 0, 0, 0, 1): 4,
+    (0, 1, 1, 0, 0, 0): 5,
+    (0, 1, 0, 1, 0, 0): 6,
+    (0, 1, 0, 0, 1, 0): 7,
+    (0, 1, 0, 0, 0, 1): 8,
+    (0, 0, 1, 1, 0, 0): 9,
+    (0, 0, 1, 0, 1, 0): 10,
+    (0, 0, 1, 0, 0, 1): 11,
+    (0, 0, 0, 1, 1, 0): 12,
+    (0, 0, 0, 1, 0, 1): 13,
+    (0, 0, 0, 0, 1, 1): 14,
+}
+
+
+outputs_, labels_ = CustomFunctional.acctransform_classify6(net(testset.images), testset.labels)
+cm = np.zeros(shape=(15, 15))
+for o, l in zip(outputs_, labels_):
+    predicted_id = labels2classids[tuple(o.numpy())]
+    true_id = labels2classids[tuple(l.numpy())]
+    cm[true_id, predicted_id] += 1
+
+symbols = '□○△▷▽◁'
+label2symbol = lambda x: ''.join([symbols[idx] for idx, bool_ in enumerate(x) if bool_ == 1])
+class_symbols = [label2symbol(k) for k in labels2classids.keys()]
+df_cm = pd.DataFrame(cm, index=class_symbols, columns=class_symbols)
+sn.heatmap(df_cm, annot=True)
+
+"""Conclusion"""
+pd.Series([(o == l).int().sum().item() for o, l in zip(outputs_, labels_)]).replace({6: 'all matched', 4: '1 matched', 2: 'none matched'}).value_counts()
+
+"""One shape"""
+indices_of_ones = lambda x: (x == 1).nonzero(as_tuple=True)[0].numpy().tolist()
+paired_indices = lambda x, y: [(i, i) for i in set(x) & set(y)] + [(i, j) for i, j in zip(list(set(x) - set(y)), list(set(y) - set(x)))]
+[(indices_of_ones(o), indices_of_ones(l)) for o, l in zip(outputs_[:10], labels_[:10])]
+[paired_indices(indices_of_ones(o), indices_of_ones(l)) for o, l in zip(outputs_[:10], labels_[:10])]
+cm = np.zeros(shape=(6, 6))
+for o, l in zip(outputs_, labels_):
+    for predicted_id, true_id in paired_indices(indices_of_ones(o), indices_of_ones(l)):
+        cm[true_id, predicted_id] += 1
+
+class_symbols = list(symbols)
+df_cm = pd.DataFrame(cm, index=class_symbols, columns=class_symbols)
+sn.heatmap(df_cm, annot=True, fmt='g')
+
+
