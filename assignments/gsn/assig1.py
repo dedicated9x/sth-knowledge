@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 
 class Linear(torch.nn.Module):
     """This class has been taken from exercise 9."""
+
     def __init__(self, in_features: int, out_features: int):
         super(Linear, self).__init__()
         self.weight = Parameter(torch.Tensor(out_features, in_features))
@@ -31,8 +32,10 @@ class Linear(torch.nn.Module):
         r += self.bias
         return r
 
+
 class Net(nn.Module):
     """This class is similar to class `Net` exercise 9."""
+
     def __init__(self, dense_first, dense_core, dense_last, nonlin_outlayer=None, conv=None):
         """If you want to know more about parameters -> see: .forward()"""
         super(Net, self).__init__()
@@ -64,17 +67,13 @@ class Net(nn.Module):
         eps = 1e-4
         return (1 - 2 * eps) * tensor_ + eps
 
-    # TODO przerobic na lambde
-    @staticmethod
-    def weight_reset(m):
-        if isinstance(m, nn.Conv2d) or isinstance(m, Linear):
-            m.reset_parameters()
-
     def reset_parameters(self):
-        self.conv.apply(Net.weight_reset)
-        self.dense_first.apply(Net.weight_reset)
-        self.dense_core.apply(Net.weight_reset)
-        self.dense_last.apply(Net.weight_reset)
+        weight_reset = lambda x: x.reset_parameters() if (isinstance(x, nn.Conv2d) or isinstance(x, Linear)) else None
+
+        self.conv.apply(weight_reset)
+        self.dense_first.apply(weight_reset)
+        self.dense_core.apply(weight_reset)
+        self.dense_last.apply(weight_reset)
 
     def with_parts(self, **kwargs):
         """
@@ -86,9 +85,9 @@ class Net(nn.Module):
             setattr(new_net, k, v)
         return new_net
 
-    # TODO usun to na dobra sprawe
     def get_parts(self):
-        return {'dense_first': self.dense_first, 'dense_core': self.dense_core, 'dense_last': self.dense_last, 'nonlin_outlayer': self.nonlin_outlayer, 'conv': self.conv}
+        return {'dense_first': self.dense_first, 'dense_core': self.dense_core, 'dense_last': self.dense_last,
+                'nonlin_outlayer': self.nonlin_outlayer, 'conv': self.conv}
 
     def to_device(self, device):
         self.conv.to(device)
@@ -96,22 +95,20 @@ class Net(nn.Module):
         self.dense_core.to(device)
         self.dense_last.to(device)
 
-# TODO wywalic transformy
+
 class ShapesDataset(torch.utils.data.Dataset):
-    def __init__(self, root, slice_=None, augmented=False, transform=None, target_transform=None):
+    def __init__(self, root, slice_=None, augmented=False):
         self.img_dir = pl.Path(root).joinpath('data')
         self.df = pd.read_csv(self.img_dir.joinpath('labels.csv'))
         if slice_ is not None:
             self.df = self.df[slice_]
-        self.images = torch.stack([torchvision.io.read_image(self.img_dir.joinpath(name).__str__())[0:1] / 255 for name in self.df['name']])
+        self.images = torch.stack(
+            [torchvision.io.read_image(self.img_dir.joinpath(name).__str__())[0:1] / 255 for name in self.df['name']])
         self.labels = torch.tensor(self.df.drop(['name'], axis=1).values)
 
         if augmented:
             self.labels = torch.cat([torch.stack(Augmentations.augment_label(l)) for l in self.labels], dim=0)
             self.images = torch.cat([torch.stack(Augmentations.augment_image(im)) for im in self.images], dim=0)
-
-        self.transform = transform
-        self.target_transform = target_transform
 
     def __len__(self):
         return len(self.labels)
@@ -119,13 +116,8 @@ class ShapesDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         image = self.images[idx]
         label = self.labels[idx]
+        return (image, label)
 
-        if self.transform:
-            image = self.transform(image)
-        if self.target_transform:
-            label = self.target_transform(label)
-        sample = (image, label)
-        return sample
 
 class Augmentations:
     indices = torch.tensor([
@@ -147,27 +139,27 @@ class Augmentations:
     def augment_image(image):
         image_vert_flip = image.flip(2)
         images = [
-            image,                              # base
-            image.rot90(3, [1, 2]),             # 90 right
-            image.rot90(2, [1, 2]),             # 180 right
-            image.rot90(1, [1, 2]),             # 270 right
-            image_vert_flip,                    # vertical flip
-            image_vert_flip.rot90(3, [1, 2]),   # vertical flip + 90 right
-            image_vert_flip.rot90(2, [1, 2]),   # vertical flip + 180 right
-            image_vert_flip.rot90(1, [1, 2])    # vertical flip + 270 right
+            image,  # base
+            image.rot90(3, [1, 2]),  # 90 right
+            image.rot90(2, [1, 2]),  # 180 right
+            image.rot90(1, [1, 2]),  # 270 right
+            image_vert_flip,  # vertical flip
+            image_vert_flip.rot90(3, [1, 2]),  # vertical flip + 90 right
+            image_vert_flip.rot90(2, [1, 2]),  # vertical flip + 180 right
+            image_vert_flip.rot90(1, [1, 2])  # vertical flip + 270 right
         ]
         return images
 
-# TODO zmiana na Trainer
-class MnistTrainer(object):
+
+class Trainer(object):
     """This class is similar to class `MnistTrainer` exercise 9."""
+
     def __init__(self, datasets, device, loss, acc, logger):
         self.trainset, self.testset = datasets
         self.trainloader = torch.utils.data.DataLoader(self.trainset, batch_size=128, shuffle=True)
         self.testloader = torch.utils.data.DataLoader(self.testset, batch_size=8, shuffle=False)
         self.loss = loss
-        # TODO zmiana na acc_transform
-        self.accuracy = acc
+        self.acc_transform = acc
         self.device = device
         self.logger = logger
         self.print_period = 20
@@ -201,7 +193,7 @@ class MnistTrainer(object):
                     inputs_, labels_ = data
                     inputs_, labels_ = inputs_.to(self.device), labels_.to(self.device)
                     outputs_ = net(inputs_)
-                    outputs_transformed, labels_transformed = self.accuracy(outputs_, labels_)
+                    outputs_transformed, labels_transformed = self.acc_transform(outputs_, labels_)
                     correct += self.count_matches(outputs_transformed, labels_transformed)
                     total += outputs_.shape[0]
             accuracy = 100 * correct / total
@@ -212,9 +204,15 @@ class MnistTrainer(object):
         return None
 
     def count_matches(self, outputs_transformed, labels_transformed):
-        """outputs & labels MUST be integer tensors"""
+        """
+        Params:
+          `outputs_transformed`, `labels_transformed` - outputs and labels after
+              last transformation before accuracy counting. They must be compa-
+              rable (using `==`)
+        """
         no_correct = (outputs_transformed == labels_transformed).all(dim=1).int().sum().item()
         return no_correct
+
 
 class CustomFunctional:
     """
@@ -253,28 +251,28 @@ class CustomFunctional:
     def loss_nll(outputs, labels):
         """
         Returns negative sum* of logarithmic losses.
-        
+
         *The sum is averaged over the batch.
         """
         neg_sums = -torch.sum(torch.log(outputs) * labels + torch.log(1 - outputs) * (1 - labels), dim=1)
         loss = torch.mean(neg_sums)
         return loss
 
-    @ classmethod
+    @classmethod
     def loss_classify6(cls, outputs, labels):
         """See: CustomFunctional"""
         labels_ = cls.binarize_topk(labels, 2)
         loss = cls.loss_nll(outputs, labels_)
         return loss
 
-    @ classmethod
+    @classmethod
     def acctransform_classify6(cls, outputs, labels):
         """See: CustomFunctional"""
         outputs_bin = cls.binarize_topk(outputs, 2)
         labels_bin = cls.binarize_topk(labels, 2)
         return outputs_bin, labels_bin
 
-    @ staticmethod
+    @staticmethod
     def loss_count60(outputs, labels):
         """See: CustomFunctional"""
         rs = labels.repeat_interleave(10, dim=1)
@@ -282,25 +280,25 @@ class CustomFunctional:
         loss = (outputs * (rs - js) ** 2).sum(dim=1).mean()
         return loss
 
-    @ staticmethod
+    @staticmethod
     def acctransform_count60(outputs, labels):
         """See: CustomFunctional"""
         outputs_ = torch.stack(outputs.split(10, dim=1)).argmax(dim=2).T
         return outputs_, labels
 
-    @ staticmethod
+    @staticmethod
     def _10_piecewise_softmax(outputs):
         """See: CustomFunctional"""
         return torch.stack(outputs.split(10, dim=1)).softmax(dim=2).transpose(0, 1).flatten(1, 2)
 
-    @ staticmethod
+    @staticmethod
     def loss_count135(outputs, labels):
         """See: CustomFunctional"""
         labels_ = torch.tensor([CustomFunctional.counts2class[tuple(e.cpu().numpy())] for e in labels]).to(device)
         loss = CustomFunctional.loss_nll(outputs, F.one_hot(labels_, 135))
         return loss
 
-    @ classmethod
+    @classmethod
     def acctransform_count135(cls, outputs, labels):
         """See: CustomFunctional"""
         outputs_transformed = torch.topk(outputs, 1).indices
@@ -308,8 +306,10 @@ class CustomFunctional:
         labels_transformed = labels_.unsqueeze(dim=1)
         return outputs_transformed, labels_transformed
 
+
 class Logger:
     """Class which stores logs from all experiments and have possibility to present them."""
+
     def __init__(self):
         """
         Attributes:
@@ -326,45 +326,26 @@ class Logger:
         """See: Logger.__init__()"""
         return max(logger.names2logs[name])
 
-    def show_compared(self, names):
+    def show_compared(self, names, loc="lower right"):
         """Create accuracy plot of given networks."""
         names2logs_subdict = {k: v for k, v in self.names2logs.items() if k in names}
-        Utils.plot_logs(names2logs_subdict)
+        # Utils.plot_logs(names2logs_subdict)
+        self.plot_logs(names2logs_subdict, loc)
 
-# TODO usun dwie pierwsze
+    def plot_logs(self, names2logs: dict, loc_="lower right"):
+        fig, ax = plt.subplots(1, 1)
+        for label_, log in names2logs.items():
+            ax.plot(range(len(log)), log, marker='o', label=label_)
+        ax.legend(loc=loc_)
+        ax.hlines(100, 0, max([len(l) for l in names2logs.values()]) - 1, color='black')
+
+
 class Utils:
-    @staticmethod
-    def get_loss_inputs(trainset, net, mb_size):
-        loader = torch.utils.data.DataLoader(trainset, batch_size=mb_size, shuffle=False)
-        inputs, labels = next(loader.__iter__())
-        outputs = net(inputs)
-        return outputs, labels
-
-    @staticmethod
-    def plot_8images(_images):
-        _labels = ['None'] * 8
-        LIMIT = len(_images)
-
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(2, 4)
-        for _img, _lab, _ax in zip(_images, _labels[:LIMIT], ax.flatten()[:LIMIT]):
-            _ax.imshow(_img[0, :, :].numpy())
-            _ax.set_xlabel(str(_lab))
-
     @staticmethod
     def conv_output_shape(net_):
         """Returns output shape of convolutional network, assuming that input shape is equal to [1, 28, 28]"""
         output = net_(torch.zeros([1, 1, 28, 28]))
         return output.shape, output.flatten().shape
-
-    # TODO przenies do loggera
-    @staticmethod
-    def plot_logs(names2logs: dict):
-        fig, ax = plt.subplots(1, 1)
-        for label_, log in names2logs.items():
-            ax.plot(range(len(log)), log, marker='o', label=label_)
-        ax.legend(loc="lower right")
-        ax.hlines(100, 0, max([len(l) for l in names2logs.values()]) - 1, color='black')
 
 
 REF = {}
@@ -407,14 +388,14 @@ def main():
     # net_base6.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
 
 
-    trainer_classify6 = MnistTrainer(datasets=(trainset, testset), device=device, logger=logger, loss=CF.loss_classify6, acc=CF.acctransform_classify6)
-    trainer_count60 = MnistTrainer(datasets=(trainset, testset), device=device, logger=logger, loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
-    trainer_count135 = MnistTrainer(datasets=(trainset, testset), device=device, logger=logger, loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135)
+    trainer_classify6 = Trainer(datasets=(trainset, testset), device=device, logger=logger, loss=CF.loss_classify6, acc=CF.acctransform_classify6)
+    trainer_count60 = Trainer(datasets=(trainset, testset), device=device, logger=logger, loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
+    trainer_count135 = Trainer(datasets=(trainset, testset), device=device, logger=logger, loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135)
 
 
     trainer_classify6.train(net=net_base6, name='name1', no_epoch=2, verbose=1)
     trainer_count60.train(net=net_base60, name='name2', no_epoch=2, verbose=1)
-    trainer_count135.train(net=net_base135, name='name3', no_epoch=20, verbose=1, reset=True)
+    trainer_count135.train(net=net_base135, name='name3', no_epoch=2, verbose=1, reset=True)
 
     logger.show_compared(['name1', 'name3'])
 
@@ -447,32 +428,6 @@ Accuracy of the network on the 1000 test images: 1.8 %
 Accuracy of the network on the 1000 test images: 0.6 %
 """
 
-""" 
-[1,    20] loss: 4.047
-[1,    40] loss: 3.792
-[1,    60] loss: 3.878
-Accuracy of the network on the 1000 test images: 6.8 %
-[2,    20] loss: 4.013
-[2,    40] loss: 3.821
-[2,    60] loss: 3.813
-Accuracy of the network on the 1000 test images: 16.3 %
-[1,    20] loss: 59.664
-[1,    40] loss: 50.674
-[1,    60] loss: 51.983
-Accuracy of the network on the 1000 test images: 0.0 %
-[2,    20] loss: 54.151
-[2,    40] loss: 51.374
-[2,    60] loss: 50.749
-Accuracy of the network on the 1000 test images: 0.0 %
-[1,    20] loss: 6.186
-[1,    40] loss: 5.858
-[1,    60] loss: 5.812
-Accuracy of the network on the 1000 test images: 0.9 %
-[2,    20] loss: 6.005
-[2,    40] loss: 5.692
-[2,    60] loss: 5.693
-Accuracy of the network on the 1000 test images: 1.3 %
-"""
 if __name__ == '__main__':
     main()
 
