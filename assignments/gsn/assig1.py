@@ -95,6 +95,18 @@ class Net(nn.Module):
         self.dense_core.to(device)
         self.dense_last.to(device)
 
+    def train(self):
+        self.conv.train()
+        self.dense_first.train()
+        self.dense_core.train()
+        self.dense_last.train()
+
+    def eval(self):
+        self.conv.eval()
+        self.dense_first.eval()
+        self.dense_core.eval()
+        self.dense_last.eval()
+
 
 class ShapesDataset(torch.utils.data.Dataset):
     def __init__(self, root, slice_=None, augmented=False):
@@ -189,6 +201,7 @@ class Trainer(object):
             correct = 0
             total = 0
             with torch.no_grad():
+                net.eval()
                 for data in self.testloader:
                     inputs_, labels_ = data
                     inputs_, labels_ = inputs_.to(self.device), labels_.to(self.device)
@@ -196,6 +209,7 @@ class Trainer(object):
                     outputs_transformed, labels_transformed = self.acc_transform(outputs_, labels_)
                     correct += self.count_matches(outputs_transformed, labels_transformed)
                     total += outputs_.shape[0]
+                net.train()
             accuracy = 100 * correct / total
             log_acc.append(accuracy)
             if verbose == 1:
@@ -339,7 +353,6 @@ class Logger:
         ax.legend(loc=loc_)
         ax.hlines(100, 0, max([len(l) for l in names2logs.values()]) - 1, color='black')
 
-
 class Utils:
     @staticmethod
     def conv_output_shape(net_):
@@ -369,8 +382,8 @@ def main():
 
     
     testset = ShapesDataset(path_to_data, slice(9000, 10000))
-    trainset = ShapesDataset(path_to_data, slice(0, 9000))
-    # trainset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(0, 9000), augmented=True)
+    # trainset = ShapesDataset(path_to_data, slice(0, 9000))
+    trainset = ShapesDataset(rf"C:\Datasets\gsn-2021-1", slice(0, 9000), augmented=True)
 
     conv_arbitrary = nn.Sequential(nn.Conv2d(in_channels=1, out_channels=20, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Conv2d(in_channels=20, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2))
     mnistslayer_head = nn.Sequential(Linear(784, 64), nn.ReLU())
@@ -379,25 +392,73 @@ def main():
     dlast60 = Linear(64, 60)
     dlast135 = Linear(64, 135)
 
-
-    net_trivial6 = Net(dense_first=mnistslayer_head, dense_core=mnistslayer_body, dense_last=dlast6, nonlin_outlayer=torch.sigmoid)
-    net_base6 = net_trivial6.with_parts(conv=conv_arbitrary)
-    net_base60 = net_base6.with_parts(dense_last=dlast60, nonlin_outlayer=CF._10_piecewise_softmax)
-    net_base135 = net_base6.with_parts(dense_last=dlast135, nonlin_outlayer=lambda outputs: torch.softmax(outputs, dim=1))
-
-    # net_base6.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
-
-
-    trainer_classify6 = Trainer(datasets=(trainset, testset), device=device, logger=logger, loss=CF.loss_classify6, acc=CF.acctransform_classify6)
+    net_trivial60 = Net(dense_first=mnistslayer_head, dense_core=mnistslayer_body, dense_last=Linear(64, 60), nonlin_outlayer=CF._10_piecewise_softmax)
     trainer_count60 = Trainer(datasets=(trainset, testset), device=device, logger=logger, loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
-    trainer_count135 = Trainer(datasets=(trainset, testset), device=device, logger=logger, loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135)
+
+    # conv_255_MP = lambda no_channels: nn.Sequential(
+    #     nn.Conv2d(in_channels=1, out_channels=no_channels, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(),
+    #     nn.MaxPool2d(kernel_size=(2, 2), stride=2),
+    #     nn.Conv2d(in_channels=no_channels, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(),
+    #     nn.MaxPool2d(kernel_size=(2, 2), stride=2)
+    # )
+    # conv_2layer_kernels55_maxpool_32chan = conv_255_MP(32)
 
 
-    trainer_classify6.train(net=net_base6, name='name1', no_epoch=2, verbose=1)
-    trainer_count60.train(net=net_base60, name='name2', no_epoch=2, verbose=1)
-    trainer_count135.train(net=net_base135, name='name3', no_epoch=2, verbose=1, reset=True)
+    conv_bn = nn.Sequential(
+        nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(5, 5), padding=(2, 2)), nn.BatchNorm2d(32), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2),
+        nn.Conv2d(in_channels=32, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.BatchNorm2d(16), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2)
+    )
+    head_bn = nn.Sequential(Linear(784, 64), nn.BatchNorm1d(64), nn.ReLU())
+    body_bn = nn.Sequential(Linear(64, 64), nn.BatchNorm1d(64), nn.ReLU())
 
-    logger.show_compared(['name1', 'name3'])
+
+    conv_do = nn.Sequential(
+        nn.Conv2d(in_channels=1, out_channels=32, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Dropout2d(0.2),
+        nn.Conv2d(in_channels=32, out_channels=16, kernel_size=(5, 5), padding=(2, 2)), nn.ReLU(), nn.MaxPool2d(kernel_size=(2, 2), stride=2), nn.Dropout2d(0.2),
+    )
+    head_do = nn.Sequential(Linear(784, 64), nn.ReLU(), nn.Dropout(0.5))
+    body_do = nn.Sequential(Linear(64, 64), nn.ReLU(), nn.Dropout(0.5))
+
+
+    # TODO dropout relu order
+
+    net_bn = net_trivial60.with_parts(conv=conv_bn, dense_first=head_bn, dense_core=body_bn)
+    net_do = net_trivial60.with_parts(conv=conv_do, dense_first=head_do, dense_core=body_do)
+
+
+    trainer_count60.train(net=net_do, name='conv55mp32ch', verbose=1)
+    # trainer_count60.train(net=net_bn, name='conv55mp32ch', verbose=1)
+
+    # trainer_count60.train(net=net_trivial60.with_parts(conv=conv_2layer_kernels55_maxpool_64chan), name='conv55mp64ch', no_epoch=40)
+
+
+
+
+
+
+    #
+    #
+    #
+    #
+    #
+    # net_trivial6 = Net(dense_first=mnistslayer_head, dense_core=mnistslayer_body, dense_last=dlast6, nonlin_outlayer=torch.sigmoid)
+    # net_base6 = net_trivial6.with_parts(conv=conv_arbitrary)
+    # net_base60 = net_base6.with_parts(dense_last=dlast60, nonlin_outlayer=CF._10_piecewise_softmax)
+    # net_base135 = net_base6.with_parts(dense_last=dlast135, nonlin_outlayer=lambda outputs: torch.softmax(outputs, dim=1))
+    #
+    # # net_base6.load_state_dict(torch.load(rf"C:\temp\output\state2.pickle"))
+    #
+    #
+    # trainer_classify6 = Trainer(datasets=(trainset, testset), device=device, logger=logger, loss=CF.loss_classify6, acc=CF.acctransform_classify6)
+    # trainer_count60 = Trainer(datasets=(trainset, testset), device=device, logger=logger, loss=CustomFunctional.loss_count60, acc=CustomFunctional.acctransform_count60)
+    # trainer_count135 = Trainer(datasets=(trainset, testset), device=device, logger=logger, loss=CustomFunctional.loss_count135, acc=CustomFunctional.acctransform_count135)
+    #
+    #
+    # trainer_classify6.train(net=net_base6, name='name1', no_epoch=2, verbose=1)
+    # trainer_count60.train(net=net_base60, name='name2', no_epoch=2, verbose=1)
+    # trainer_count135.train(net=net_base135, name='name3', no_epoch=20, verbose=1, reset=True)
+    #
+    # logger.show_compared(['name1', 'name3'])
 
     # torch.save(net_base6.state_dict(), rf"C:\temp\output\state2.pickle")
 
